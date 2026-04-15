@@ -1,0 +1,1089 @@
+{
+  "flows": [
+    {
+      "title": "콘텐츠 기획 및 발행 요청하기",
+      "description": "나미에게 경쟁사 분석 기반 SEO 콘텐츠 생성을 지시하고 노션에서 결과 확인",
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "start",
+          "label": "시작",
+          "description": "마케팅 담당자가 콘텐츠 기획 업무를 시작"
+        },
+        {
+          "id": "n2",
+          "type": "action",
+          "label": "채널 접속",
+          "description": "디스코드 #콘텐츠팀-나미 채널에 접속"
+        },
+        {
+          "id": "n3",
+          "type": "decision",
+          "label": "경쟁사 분석?",
+          "description": "상디의 경쟁사 분석 자료가 이미 준비되어 있는가?"
+        },
+        {
+          "id": "n4",
+          "type": "action",
+          "label": "분석 요청",
+          "description": "#시장정보-상디 채널에서 경쟁사 분석 요청"
+        },
+        {
+          "id": "n5",
+          "type": "system",
+          "label": "분석 자동생성",
+          "description": "상디가 경쟁사 동향 크롤링 후 노션에 자동 업로드"
+        },
+        {
+          "id": "n6",
+          "type": "action",
+          "label": "콘텐츠 지시",
+          "description": "나미에게 경쟁사 소식 기반 콘텐츠 기획 요청 입력"
+        },
+        {
+          "id": "n7",
+          "type": "system",
+          "label": "키워드 분석",
+          "description": "나미가 관련 SEO 키워드 검색량 자동 분석"
+        },
+        {
+          "id": "n8",
+          "type": "system",
+          "label": "기획안 생성",
+          "description": "나미가 Qoo10 JP 콘텐츠 기획안 3개 자동 생성"
+        },
+        {
+          "id": "n9",
+          "type": "system",
+          "label": "노션 업로드",
+          "description": "완성된 기획안을 노션 페이지에 자동 저장"
+        },
+        {
+          "id": "n10",
+          "type": "system",
+          "label": "완료 알림",
+          "description": "나미가 디스코드 채널에 완료 메시지 전송"
+        },
+        {
+          "id": "n11",
+          "type": "action",
+          "label": "노션 확인",
+          "description": "노션에서 콘텐츠 기획안 3개 내용 검토"
+        },
+        {
+          "id": "n12",
+          "type": "decision",
+          "label": "수정 필요?",
+          "description": "기획안이 방향성과 요구사항에 부합하는가?"
+        },
+        {
+          "id": "n13",
+          "type": "action",
+          "label": "수정 요청",
+          "description": "나미에게 수정 사항을 디스코드 메시지로 전달"
+        },
+        {
+          "id": "n14",
+          "type": "end",
+          "label": "기획 승인",
+          "description": "콘텐츠 기획안 최종 승인 및 발행 준비 완료"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "n1",
+          "target": "n2"
+        },
+        {
+          "id": "e2",
+          "source": "n2",
+          "target": "n3"
+        },
+        {
+          "id": "e3",
+          "source": "n3",
+          "target": "n4",
+          "label": "아니오"
+        },
+        {
+          "id": "e4",
+          "source": "n3",
+          "target": "n6",
+          "label": "예"
+        },
+        {
+          "id": "e5",
+          "source": "n4",
+          "target": "n5"
+        },
+        {
+          "id": "e6",
+          "source": "n5",
+          "target": "n6"
+        },
+        {
+          "id": "e7",
+          "source": "n6",
+          "target": "n7"
+        },
+        {
+          "id": "e8",
+          "source": "n7",
+          "target": "n8"
+        },
+        {
+          "id": "e9",
+          "source": "n8",
+          "target": "n9"
+        },
+        {
+          "id": "e10",
+          "source": "n9",
+          "target": "n10"
+        },
+        {
+          "id": "e11",
+          "source": "n10",
+          "target": "n11"
+        },
+        {
+          "id": "e12",
+          "source": "n11",
+          "target": "n12"
+        },
+        {
+          "id": "e13",
+          "source": "n12",
+          "target": "n14",
+          "label": "예"
+        },
+        {
+          "id": "e14",
+          "source": "n12",
+          "target": "n13",
+          "label": "아니오"
+        },
+        {
+          "id": "e15",
+          "source": "n13",
+          "target": "n7"
+        }
+      ],
+      "id": "suggest_0_mnzwr8hh"
+    },
+    {
+      "title": "신규 리드 발굴 및 콜드메일 발송하기",
+      "description": "조로에게 타겟 리드 크롤링·스코어링부터 개인화 메일 자동 발송까지 위임",
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "start",
+          "label": "시작",
+          "description": "리드 발굴 및 콜드메일 워크플로우 시작"
+        },
+        {
+          "id": "n2",
+          "type": "action",
+          "label": "채널 진입",
+          "description": "디스코드 #리드수집-조로 채널에 접속"
+        },
+        {
+          "id": "n3",
+          "type": "action",
+          "label": "타겟 입력",
+          "description": "크롤링 대상 업종·지역·조건을 조로에게 입력"
+        },
+        {
+          "id": "n4",
+          "type": "system",
+          "label": "멀티소스 크롤링",
+          "description": "구글·쇼피파이·틱톡·올리브영 리드 자동 수집"
+        },
+        {
+          "id": "n5",
+          "type": "system",
+          "label": "스코어링",
+          "description": "이메일 유효성·회사규모·업종 자동 분류 및 중복 제거"
+        },
+        {
+          "id": "n6",
+          "type": "decision",
+          "label": "리드 충분?",
+          "description": "수집 리드 수와 품질이 기준치를 충족하는가?"
+        },
+        {
+          "id": "n7",
+          "type": "action",
+          "label": "조건 재조정",
+          "description": "타겟 범위 또는 크롤링 소스 조건 수정 요청"
+        },
+        {
+          "id": "n8",
+          "type": "system",
+          "label": "메일 초안 생성",
+          "description": "타겟별 개인화 콜드메일 초안 자동 생성"
+        },
+        {
+          "id": "n9",
+          "type": "decision",
+          "label": "메일 승인?",
+          "description": "조로가 작성한 메일 초안을 검토하고 승인하는가?"
+        },
+        {
+          "id": "n10",
+          "type": "action",
+          "label": "수정 요청",
+          "description": "톤·내용 수정 사항을 조로에게 채팅으로 지시"
+        },
+        {
+          "id": "n11",
+          "type": "action",
+          "label": "발송 승인",
+          "description": "최종 리스트와 메일 내용 확인 후 발송 승인"
+        },
+        {
+          "id": "n12",
+          "type": "system",
+          "label": "이메일 발송",
+          "description": "SendGrid 연동으로 개인화 메일 자동 일괄 발송"
+        },
+        {
+          "id": "n13",
+          "type": "system",
+          "label": "성과 추적",
+          "description": "오픈율·클릭률·회신율 자동 추적 및 노션 기록"
+        },
+        {
+          "id": "n14",
+          "type": "end",
+          "label": "완료",
+          "description": "리드 목록과 발송 결과 노션에 저장 완료"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "n1",
+          "target": "n2"
+        },
+        {
+          "id": "e2",
+          "source": "n2",
+          "target": "n3"
+        },
+        {
+          "id": "e3",
+          "source": "n3",
+          "target": "n4"
+        },
+        {
+          "id": "e4",
+          "source": "n4",
+          "target": "n5"
+        },
+        {
+          "id": "e5",
+          "source": "n5",
+          "target": "n6"
+        },
+        {
+          "id": "e6",
+          "source": "n6",
+          "target": "n7",
+          "label": "아니오"
+        },
+        {
+          "id": "e7",
+          "source": "n7",
+          "target": "n4"
+        },
+        {
+          "id": "e8",
+          "source": "n6",
+          "target": "n8",
+          "label": "예"
+        },
+        {
+          "id": "e9",
+          "source": "n8",
+          "target": "n9"
+        },
+        {
+          "id": "e10",
+          "source": "n9",
+          "target": "n10",
+          "label": "아니오"
+        },
+        {
+          "id": "e11",
+          "source": "n10",
+          "target": "n8"
+        },
+        {
+          "id": "e12",
+          "source": "n9",
+          "target": "n11",
+          "label": "예"
+        },
+        {
+          "id": "e13",
+          "source": "n11",
+          "target": "n12"
+        },
+        {
+          "id": "e14",
+          "source": "n12",
+          "target": "n13"
+        },
+        {
+          "id": "e15",
+          "source": "n13",
+          "target": "n14"
+        }
+      ],
+      "id": "suggest_1_mnzwr8hh"
+    },
+    {
+      "title": "경쟁사 사이트 DOM 구조 분석 의뢰하기",
+      "description": "우솝에게 특정 URL의 DOM 트리 분석과 개발 스펙 문서 자동 생성 요청",
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "start",
+          "label": "시작",
+          "description": "DOM 분석 필요성을 인식하고 작업을 시작함"
+        },
+        {
+          "id": "n2",
+          "type": "action",
+          "label": "채널 접속",
+          "description": "디스코드 #DOM분석-우솝 채널에 접속함"
+        },
+        {
+          "id": "n3",
+          "type": "action",
+          "label": "URL 및 목적 입력",
+          "description": "분석 대상 URL과 분석 목적을 메시지로 입력"
+        },
+        {
+          "id": "n4",
+          "type": "system",
+          "label": "요청 수신",
+          "description": "우솝이 요청을 인식하고 접수 확인 메시지 발송"
+        },
+        {
+          "id": "n5",
+          "type": "decision",
+          "label": "URL 접근 가능?",
+          "description": "헤드리스 브라우저로 대상 URL에 접근이 가능한가?"
+        },
+        {
+          "id": "n6",
+          "type": "action",
+          "label": "접근 방법 재입력",
+          "description": "우솝의 안내에 따라 대체 URL 또는 접근 정보 제공"
+        },
+        {
+          "id": "n7",
+          "type": "system",
+          "label": "DOM 트리 추출",
+          "description": "Puppeteer로 전체 DOM 트리를 헤드리스 추출 시작"
+        },
+        {
+          "id": "n8",
+          "type": "system",
+          "label": "동적 구조 감지",
+          "description": "iframe·지연 로딩·동적 렌더링 요소 자동 탐지"
+        },
+        {
+          "id": "n9",
+          "type": "decision",
+          "label": "복잡한 구조?",
+          "description": "iframe 또는 동적 로딩이 포함된 복잡한 구조인가?"
+        },
+        {
+          "id": "n10",
+          "type": "system",
+          "label": "심층 분석 실행",
+          "description": "iframe 내부 진입 및 동적 로딩 트리거 후 재추출"
+        },
+        {
+          "id": "n11",
+          "type": "system",
+          "label": "셀렉터 추출",
+          "description": "CSS 셀렉터·XPath·클래스 구조 자동 정리"
+        },
+        {
+          "id": "n12",
+          "type": "system",
+          "label": "스펙 문서 생성",
+          "description": "DayZero work/action 구조 기반 스펙 문서 자동 작성"
+        },
+        {
+          "id": "n13",
+          "type": "system",
+          "label": "노션 업로드",
+          "description": "완성된 스펙 문서를 노션에 자동 업로드 및 링크 공유"
+        },
+        {
+          "id": "n14",
+          "type": "end",
+          "label": "완료",
+          "description": "우솝의 완료 알림 확인 후 스펙 문서를 개발에 활용"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "n1",
+          "target": "n2"
+        },
+        {
+          "id": "e2",
+          "source": "n2",
+          "target": "n3"
+        },
+        {
+          "id": "e3",
+          "source": "n3",
+          "target": "n4"
+        },
+        {
+          "id": "e4",
+          "source": "n4",
+          "target": "n5"
+        },
+        {
+          "id": "e5",
+          "source": "n5",
+          "target": "n6",
+          "label": "아니오"
+        },
+        {
+          "id": "e6",
+          "source": "n5",
+          "target": "n7",
+          "label": "예"
+        },
+        {
+          "id": "e7",
+          "source": "n6",
+          "target": "n4"
+        },
+        {
+          "id": "e8",
+          "source": "n7",
+          "target": "n8"
+        },
+        {
+          "id": "e9",
+          "source": "n8",
+          "target": "n9"
+        },
+        {
+          "id": "e10",
+          "source": "n9",
+          "target": "n10",
+          "label": "예"
+        },
+        {
+          "id": "e11",
+          "source": "n9",
+          "target": "n11",
+          "label": "아니오"
+        },
+        {
+          "id": "e12",
+          "source": "n10",
+          "target": "n11"
+        },
+        {
+          "id": "e13",
+          "source": "n11",
+          "target": "n12"
+        },
+        {
+          "id": "e14",
+          "source": "n12",
+          "target": "n13"
+        },
+        {
+          "id": "e15",
+          "source": "n13",
+          "target": "n14"
+        }
+      ],
+      "id": "suggest_2_mnzwr8hh"
+    },
+    {
+      "title": "시장 동향 브리핑 구독 및 긴급 알림 수신하기",
+      "description": "상디의 일일·주간 브리핑을 채널에서 받고 경쟁사 긴급 변동 즉시 파악",
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "start",
+          "label": "시작",
+          "description": "워크플로우 시작"
+        },
+        {
+          "id": "n2",
+          "type": "action",
+          "label": "채널 접속",
+          "description": "디스코드 #시장정보-상디 채널 접속"
+        },
+        {
+          "id": "n3",
+          "type": "system",
+          "label": "브리핑 생성",
+          "description": "cron 스케줄로 일일·주간 브리핑 자동 생성"
+        },
+        {
+          "id": "n4",
+          "type": "action",
+          "label": "브리핑 열람",
+          "description": "상디의 브리핑 메시지 확인 및 읽기"
+        },
+        {
+          "id": "n5",
+          "type": "system",
+          "label": "노션 동기화",
+          "description": "브리핑 상세 내용 노션에 자동 업로드"
+        },
+        {
+          "id": "n6",
+          "type": "decision",
+          "label": "긴급 알림?",
+          "description": "경쟁사 긴급 변동 알림이 존재하는가?"
+        },
+        {
+          "id": "n7",
+          "type": "action",
+          "label": "알림 확인",
+          "description": "경쟁사 변동 알림 메시지 상세 확인"
+        },
+        {
+          "id": "n8",
+          "type": "system",
+          "label": "분석 생성",
+          "description": "경쟁사 분석 페이지 노션에 자동 생성"
+        },
+        {
+          "id": "n9",
+          "type": "action",
+          "label": "노션 이동",
+          "description": "노션 분석 페이지로 이동해 내용 확인"
+        },
+        {
+          "id": "n10",
+          "type": "decision",
+          "label": "후속 조치?",
+          "description": "팀 대응 또는 추가 분석이 필요한가?"
+        },
+        {
+          "id": "n11",
+          "type": "action",
+          "label": "요청 입력",
+          "description": "상디 채널에 추가 분석 요청 메시지 입력"
+        },
+        {
+          "id": "n12",
+          "type": "system",
+          "label": "추가 분석",
+          "description": "요청 처리 후 심화 분석 노션에 업로드"
+        },
+        {
+          "id": "n13",
+          "type": "end",
+          "label": "대응 완료",
+          "description": "긴급 알림 대응 및 후속 분석 완료"
+        },
+        {
+          "id": "n14",
+          "type": "end",
+          "label": "열람 완료",
+          "description": "브리핑 확인 완료, 업무 시작 준비 완료"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "n1",
+          "target": "n2"
+        },
+        {
+          "id": "e2",
+          "source": "n2",
+          "target": "n3"
+        },
+        {
+          "id": "e3",
+          "source": "n3",
+          "target": "n4"
+        },
+        {
+          "id": "e4",
+          "source": "n4",
+          "target": "n5"
+        },
+        {
+          "id": "e5",
+          "source": "n5",
+          "target": "n6"
+        },
+        {
+          "id": "e6",
+          "source": "n6",
+          "target": "n7",
+          "label": "예"
+        },
+        {
+          "id": "e7",
+          "source": "n6",
+          "target": "n14",
+          "label": "아니오"
+        },
+        {
+          "id": "e8",
+          "source": "n7",
+          "target": "n8"
+        },
+        {
+          "id": "e9",
+          "source": "n8",
+          "target": "n9"
+        },
+        {
+          "id": "e10",
+          "source": "n9",
+          "target": "n10"
+        },
+        {
+          "id": "e11",
+          "source": "n10",
+          "target": "n11",
+          "label": "예"
+        },
+        {
+          "id": "e12",
+          "source": "n10",
+          "target": "n13",
+          "label": "아니오"
+        },
+        {
+          "id": "e13",
+          "source": "n11",
+          "target": "n12"
+        },
+        {
+          "id": "e14",
+          "source": "n12",
+          "target": "n13"
+        }
+      ],
+      "id": "suggest_3_mnzwr8hh"
+    },
+    {
+      "title": "사용자 인터뷰 및 UT 시나리오 설계하기",
+      "description": "초퍼에게 리서치 질문지 설계·인터뷰 클러스터링·수정안 초안 작성 위임",
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "start",
+          "label": "시작",
+          "description": "리서치 목적과 범위를 정의하는 단계"
+        },
+        {
+          "id": "n2",
+          "type": "action",
+          "label": "목적 정의",
+          "description": "인터뷰/UT의 목적과 대상 사용자 설정"
+        },
+        {
+          "id": "n3",
+          "type": "decision",
+          "label": "기존 질문지?",
+          "description": "재사용 가능한 기존 질문지가 있는가?"
+        },
+        {
+          "id": "n4",
+          "type": "action",
+          "label": "질문지 요청",
+          "description": "#리서치-초퍼 채널에 질문지 설계 요청"
+        },
+        {
+          "id": "n5",
+          "type": "action",
+          "label": "기존 전달",
+          "description": "기존 질문지를 초퍼에게 검토 요청"
+        },
+        {
+          "id": "n6",
+          "type": "system",
+          "label": "질문지 생성",
+          "description": "CRO/PM/UX 다관점 자동 질문지 생성"
+        },
+        {
+          "id": "n7",
+          "type": "action",
+          "label": "질문지 검토",
+          "description": "생성된 질문지 내용 확인 및 피드백"
+        },
+        {
+          "id": "n8",
+          "type": "decision",
+          "label": "수정 필요?",
+          "description": "질문지 수정이나 보완이 필요한가?"
+        },
+        {
+          "id": "n9",
+          "type": "action",
+          "label": "수정 요청",
+          "description": "초퍼에게 수정 방향 설명 후 재생성 요청"
+        },
+        {
+          "id": "n10",
+          "type": "action",
+          "label": "인터뷰 진행",
+          "description": "최종 질문지로 사용자 인터뷰/UT 수행"
+        },
+        {
+          "id": "n11",
+          "type": "action",
+          "label": "녹취록 전달",
+          "description": "녹취록이나 메모를 초퍼 채널에 붙여넣기"
+        },
+        {
+          "id": "n12",
+          "type": "system",
+          "label": "클러스터링",
+          "description": "Atomic Nugget 테마 자동 클러스터링 분석"
+        },
+        {
+          "id": "n13",
+          "type": "system",
+          "label": "수정안 생성",
+          "description": "UX 수정안 초안 자동 생성 및 노션 업로드"
+        },
+        {
+          "id": "n14",
+          "type": "action",
+          "label": "결과 검토",
+          "description": "클러스터링 결과와 수정안 초안 검토"
+        },
+        {
+          "id": "n15",
+          "type": "decision",
+          "label": "추가 필요?",
+          "description": "추가 리서치나 심층 분석이 필요한가?"
+        },
+        {
+          "id": "n16",
+          "type": "end",
+          "label": "완료",
+          "description": "노션에 최종 리서치 결과 저장 및 공유"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "n1",
+          "target": "n2"
+        },
+        {
+          "id": "e2",
+          "source": "n2",
+          "target": "n3"
+        },
+        {
+          "id": "e3",
+          "source": "n3",
+          "target": "n4",
+          "label": "아니오"
+        },
+        {
+          "id": "e4",
+          "source": "n3",
+          "target": "n5",
+          "label": "예"
+        },
+        {
+          "id": "e5",
+          "source": "n4",
+          "target": "n6"
+        },
+        {
+          "id": "e6",
+          "source": "n5",
+          "target": "n6"
+        },
+        {
+          "id": "e7",
+          "source": "n6",
+          "target": "n7"
+        },
+        {
+          "id": "e8",
+          "source": "n7",
+          "target": "n8"
+        },
+        {
+          "id": "e9",
+          "source": "n8",
+          "target": "n9",
+          "label": "예"
+        },
+        {
+          "id": "e10",
+          "source": "n8",
+          "target": "n10",
+          "label": "아니오"
+        },
+        {
+          "id": "e11",
+          "source": "n9",
+          "target": "n6"
+        },
+        {
+          "id": "e12",
+          "source": "n10",
+          "target": "n11"
+        },
+        {
+          "id": "e13",
+          "source": "n11",
+          "target": "n12"
+        },
+        {
+          "id": "e14",
+          "source": "n12",
+          "target": "n13"
+        },
+        {
+          "id": "e15",
+          "source": "n13",
+          "target": "n14"
+        },
+        {
+          "id": "e16",
+          "source": "n14",
+          "target": "n15"
+        },
+        {
+          "id": "e17",
+          "source": "n15",
+          "target": "n11",
+          "label": "예"
+        },
+        {
+          "id": "e18",
+          "source": "n15",
+          "target": "n16",
+          "label": "아니오"
+        }
+      ],
+      "id": "suggest_4_mnzwr8hh"
+    },
+    {
+      "title": "복합 업무 조율 및 루피 팀에 위임하기",
+      "description": "루피를 통해 여러 에이전트에게 업무를 분배하고 통합 결과를 노션에서 검토",
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "start",
+          "label": "시작",
+          "description": "복합 업무 조율 워크플로우 시작"
+        },
+        {
+          "id": "n2",
+          "type": "action",
+          "label": "채널 접속",
+          "description": "디스코드 #루피-조율 채널에 접속"
+        },
+        {
+          "id": "n3",
+          "type": "action",
+          "label": "업무 전달",
+          "description": "복합 업무 내용과 목표를 루피에게 입력"
+        },
+        {
+          "id": "n4",
+          "type": "system",
+          "label": "업무 분석",
+          "description": "루피가 업무 범위와 필요 에이전트 파악"
+        },
+        {
+          "id": "n5",
+          "type": "decision",
+          "label": "다중 에이전트?",
+          "description": "두 개 이상의 에이전트가 필요한가?"
+        },
+        {
+          "id": "n6",
+          "type": "system",
+          "label": "단일 위임",
+          "description": "해당 에이전트에게 단독 업무 지시"
+        },
+        {
+          "id": "n7",
+          "type": "system",
+          "label": "분배 계획",
+          "description": "루피가 에이전트별 역할과 순서 계획 수립"
+        },
+        {
+          "id": "n8",
+          "type": "system",
+          "label": "동시 위임",
+          "description": "각 에이전트에게 업무 동시 발송"
+        },
+        {
+          "id": "n9",
+          "type": "system",
+          "label": "에이전트 처리",
+          "description": "나미·조로·상디·우솝·초퍼 각자 수행"
+        },
+        {
+          "id": "n10",
+          "type": "decision",
+          "label": "모두 완료?",
+          "description": "모든 에이전트의 작업이 완료됐는가?"
+        },
+        {
+          "id": "n11",
+          "type": "system",
+          "label": "결과 취합",
+          "description": "루피가 전체 에이전트 결과 수집 및 통합"
+        },
+        {
+          "id": "n12",
+          "type": "system",
+          "label": "노션 업로드",
+          "description": "통합 리포트를 노션에 자동 업로드"
+        },
+        {
+          "id": "n13",
+          "type": "action",
+          "label": "결과 검토",
+          "description": "노션에서 통합 결과물 및 에이전트별 내용 확인"
+        },
+        {
+          "id": "n14",
+          "type": "decision",
+          "label": "결과 만족?",
+          "description": "결과물이 요구사항과 기대치에 부합하는가?"
+        },
+        {
+          "id": "n15",
+          "type": "action",
+          "label": "수정 요청",
+          "description": "루피에게 구체적인 수정 사항 전달"
+        },
+        {
+          "id": "n16",
+          "type": "end",
+          "label": "완료",
+          "description": "복합 업무 조율 및 노션 통합 결과 저장 완료"
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": "n1",
+          "target": "n2"
+        },
+        {
+          "id": "e2",
+          "source": "n2",
+          "target": "n3"
+        },
+        {
+          "id": "e3",
+          "source": "n3",
+          "target": "n4"
+        },
+        {
+          "id": "e4",
+          "source": "n4",
+          "target": "n5"
+        },
+        {
+          "id": "e5",
+          "source": "n5",
+          "target": "n6",
+          "label": "아니오"
+        },
+        {
+          "id": "e6",
+          "source": "n5",
+          "target": "n7",
+          "label": "예"
+        },
+        {
+          "id": "e7",
+          "source": "n6",
+          "target": "n12"
+        },
+        {
+          "id": "e8",
+          "source": "n7",
+          "target": "n8"
+        },
+        {
+          "id": "e9",
+          "source": "n8",
+          "target": "n9"
+        },
+        {
+          "id": "e10",
+          "source": "n9",
+          "target": "n10"
+        },
+        {
+          "id": "e11",
+          "source": "n10",
+          "target": "n9",
+          "label": "아니오"
+        },
+        {
+          "id": "e12",
+          "source": "n10",
+          "target": "n11",
+          "label": "예"
+        },
+        {
+          "id": "e13",
+          "source": "n11",
+          "target": "n12"
+        },
+        {
+          "id": "e14",
+          "source": "n12",
+          "target": "n13"
+        },
+        {
+          "id": "e15",
+          "source": "n13",
+          "target": "n14"
+        },
+        {
+          "id": "e16",
+          "source": "n14",
+          "target": "n16",
+          "label": "예"
+        },
+        {
+          "id": "e17",
+          "source": "n14",
+          "target": "n15",
+          "label": "아니오"
+        },
+        {
+          "id": "e18",
+          "source": "n15",
+          "target": "n4"
+        }
+      ],
+      "id": "suggest_5_mnzwr8hh"
+    }
+  ]
+}

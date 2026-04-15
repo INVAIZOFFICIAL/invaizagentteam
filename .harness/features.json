@@ -1,0 +1,336 @@
+{
+  "productName": "INVAIZ 루피 사단",
+  "treeNodes": [
+    {
+      "id": "root",
+      "type": "root",
+      "label": "INVAIZ 루피 사단",
+      "parentId": null,
+      "description": "원피스 캐릭터 인격 기반 6인 AI 에이전트 팀 — Claude Code + cron으로 5개 업무 도메인 24/7 자동화"
+    },
+    {
+      "id": "cat1",
+      "type": "category",
+      "label": "에이전트 코어 시스템",
+      "parentId": "root",
+      "color": "#3b82f6",
+      "description": "루피 중재·인격·디스코드·노션·인프라 공통 기반"
+    },
+    {
+      "id": "cat2",
+      "type": "category",
+      "label": "콘텐츠 자동화 — 나미",
+      "parentId": "root",
+      "color": "#8b5cf6",
+      "description": "경쟁사 크롤링·Qoo10 JP SEO 콘텐츠 생성·성과 분석"
+    },
+    {
+      "id": "cat3",
+      "type": "category",
+      "label": "리드 수집 & 세일즈 — 조로",
+      "parentId": "root",
+      "color": "#10b981",
+      "description": "멀티소스 크롤링·스코어링·콜드메일 자동 발송"
+    },
+    {
+      "id": "cat4",
+      "type": "category",
+      "label": "DOM 분석 & 개발지원 — 우솝",
+      "parentId": "root",
+      "color": "#f59e0b",
+      "description": "헤드리스 DOM 분석·스펙 문서 자동 생성·변동 모니터링"
+    },
+    {
+      "id": "cat5",
+      "type": "category",
+      "label": "시장정보 인텔리전스 — 상디",
+      "parentId": "root",
+      "color": "#ef4444",
+      "description": "관세청·커뮤니티 크롤링·일일 브리핑·긴급 알림"
+    },
+    {
+      "id": "cat6",
+      "type": "category",
+      "label": "사용자 리서치 & UT — 초퍼",
+      "parentId": "root",
+      "color": "#06b6d4",
+      "description": "UT 시나리오 설계·Atomic Nugget 클러스터링·수정안 생성"
+    },
+    {
+      "id": "f1",
+      "type": "feature",
+      "label": "캐릭터 인격 시스템",
+      "parentId": "cat1",
+      "priority": "high",
+      "description": "personality.md 기반 의사결정 패턴·톤·금기사항 정의",
+      "roles": [
+        "시스템 관리자"
+      ]
+    },
+    {
+      "id": "f2",
+      "type": "feature",
+      "label": "디스코드 통합 인터페이스",
+      "parentId": "cat1",
+      "priority": "high",
+      "description": "멘션 기반 업무 지시 수신 및 결과 리포트 자동 발송",
+      "roles": [
+        "내부 직원"
+      ]
+    },
+    {
+      "id": "f3",
+      "type": "feature",
+      "label": "노션 결과 저장소 연동",
+      "parentId": "cat1",
+      "priority": "high",
+      "description": "Notion MCP/API로 결과물 자동 업로드·문서화",
+      "roles": [
+        "내부 직원"
+      ]
+    },
+    {
+      "id": "f4",
+      "type": "feature",
+      "label": "인프라 & 운영 자동화",
+      "parentId": "cat1",
+      "priority": "medium",
+      "description": "맥북↔맥미니 Git 동기화·LaunchDaemon 자동 재시작",
+      "roles": [
+        "시스템 관리자"
+      ]
+    },
+    {
+      "id": "f5",
+      "type": "feature",
+      "label": "루피 팀 중재 & 조율",
+      "parentId": "cat1",
+      "priority": "medium",
+      "description": "팀 간 방향 충돌 감지 및 자동 중재 판단 실행",
+      "roles": [
+        "시스템 관리자",
+        "내부 직원"
+      ]
+    },
+    {
+      "id": "f6",
+      "type": "feature",
+      "label": "경쟁사 콘텐츠 크롤링",
+      "parentId": "cat2",
+      "priority": "high",
+      "description": "벤치마크 인기 콘텐츠 자동 수집 및 트렌드 분석",
+      "roles": [
+        "마케팅 담당자"
+      ]
+    },
+    {
+      "id": "f7",
+      "type": "feature",
+      "label": "Qoo10 JP SEO 콘텐츠 생성",
+      "parentId": "cat2",
+      "priority": "high",
+      "description": "키워드 기반 상품 설명·SEO 콘텐츠 대량 자동 생성",
+      "roles": [
+        "마케팅 담당자"
+      ]
+    },
+    {
+      "id": "f8",
+      "type": "feature",
+      "label": "콘텐츠 성과 분석",
+      "parentId": "cat2",
+      "priority": "medium",
+      "description": "유기적 유입·클릭률 성과 지표 추적 및 최적화 리포트",
+      "roles": [
+        "마케팅 담당자"
+      ]
+    },
+    {
+      "id": "f9",
+      "type": "feature",
+      "label": "멀티소스 리드 크롤링",
+      "parentId": "cat3",
+      "priority": "high",
+      "description": "구글·쇼피파이·틱톡·올리브영 셀러 리드 자동 수집",
+      "roles": [
+        "영업 담당자"
+      ]
+    },
+    {
+      "id": "f10",
+      "type": "feature",
+      "label": "리드 스코어링 & 분류",
+      "parentId": "cat3",
+      "priority": "high",
+      "description": "이메일 유효성·회사규모·사업영역 자동 분류·중복 제거",
+      "roles": [
+        "영업 담당자"
+      ]
+    },
+    {
+      "id": "f11",
+      "type": "feature",
+      "label": "개인화 콜드메일 자동화",
+      "parentId": "cat3",
+      "priority": "high",
+      "description": "타겟별 메일 자동 생성·발송·오픈율 성과 추적",
+      "roles": [
+        "영업 담당자"
+      ]
+    },
+    {
+      "id": "f12",
+      "type": "feature",
+      "label": "헤드리스 DOM 트리 분석",
+      "parentId": "cat4",
+      "priority": "high",
+      "description": "Puppeteer CSS셀렉터·XPath·iframe·동적 로딩 자동 분석",
+      "roles": [
+        "개발 담당자"
+      ]
+    },
+    {
+      "id": "f13",
+      "type": "feature",
+      "label": "스펙 문서 자동 생성",
+      "parentId": "cat4",
+      "priority": "high",
+      "description": "DayZero work/action 구조 맞춤 RPA 스펙 자동 문서화",
+      "roles": [
+        "개발 담당자"
+      ]
+    },
+    {
+      "id": "f14",
+      "type": "feature",
+      "label": "DOM 변동 정기 모니터링",
+      "parentId": "cat4",
+      "priority": "medium",
+      "description": "cron 기반 변동 감지·6시간 내 디스코드 장애 알림",
+      "roles": [
+        "개발 담당자",
+        "시스템 관리자"
+      ]
+    },
+    {
+      "id": "f15",
+      "type": "feature",
+      "label": "다중 소스 시장 크롤링",
+      "parentId": "cat5",
+      "priority": "high",
+      "description": "관세청·물류뉴스·역직구 커뮤니티·Qoo10 공지 수집",
+      "roles": [
+        "마케팅 담당자",
+        "영업 담당자"
+      ]
+    },
+    {
+      "id": "f16",
+      "type": "feature",
+      "label": "일일/주간 브리핑 자동화",
+      "parentId": "cat5",
+      "priority": "high",
+      "description": "카테고리별 요약 보고서·디스코드 자동 발송",
+      "roles": [
+        "내부 직원"
+      ]
+    },
+    {
+      "id": "f17",
+      "type": "feature",
+      "label": "긴급 변동 즉시 알림",
+      "parentId": "cat5",
+      "priority": "medium",
+      "description": "규정·가격·정책 긴급 변동 감지 시 즉시 디스코드 알림",
+      "roles": [
+        "내부 직원"
+      ]
+    },
+    {
+      "id": "f18",
+      "type": "feature",
+      "label": "UT 시나리오 자동 설계",
+      "parentId": "cat6",
+      "priority": "high",
+      "description": "태스크 흐름·성공 기준·관찰 포인트 자동 시나리오 생성",
+      "roles": [
+        "리서치 담당자"
+      ]
+    },
+    {
+      "id": "f19",
+      "type": "feature",
+      "label": "Atomic Nugget 클러스터링",
+      "parentId": "cat6",
+      "priority": "high",
+      "description": "인터뷰·UT 결과 테마 자동 분류 및 핵심 인사이트 도출",
+      "roles": [
+        "리서치 담당자"
+      ]
+    },
+    {
+      "id": "f20",
+      "type": "feature",
+      "label": "수정안 초안 자동 생성",
+      "parentId": "cat6",
+      "priority": "high",
+      "description": "인사이트 기반 UI/UX 개선 수정안 초안 자동 작성",
+      "roles": [
+        "리서치 담당자"
+      ]
+    },
+    {
+      "id": "f21",
+      "type": "feature",
+      "label": "인터뷰 질문지 다관점 검토",
+      "parentId": "cat6",
+      "priority": "medium",
+      "description": "CRO/PM/UX 관점 자동 검토 및 질문 개선 제안",
+      "roles": [
+        "리서치 담당자"
+      ]
+    },
+    {
+      "id": "sf1",
+      "type": "subfeature",
+      "label": "구글 셀러 리드 추출",
+      "parentId": "f9",
+      "description": "검색 키워드 기반 셀러 이메일·사이트 자동 추출"
+    },
+    {
+      "id": "sf2",
+      "type": "subfeature",
+      "label": "쇼피파이·틱톡 스토어 스캔",
+      "parentId": "f9",
+      "description": "쇼피파이·틱톡샵 셀러 DB 자동 스캔 및 연락처 수집"
+    },
+    {
+      "id": "sf3",
+      "type": "subfeature",
+      "label": "SendGrid/Mailgun 연동",
+      "parentId": "f11",
+      "description": "메일 발송 API 연동 및 발송 대기열 자동 관리"
+    },
+    {
+      "id": "sf4",
+      "type": "subfeature",
+      "label": "메일 성과 추적 대시보드",
+      "parentId": "f11",
+      "description": "오픈율·클릭률·미팅 전환율 자동 집계 및 리포트"
+    },
+    {
+      "id": "sf5",
+      "type": "subfeature",
+      "label": "테마 자동 클러스터링",
+      "parentId": "f19",
+      "description": "Nugget 의미 기반 자동 그룹화 및 테마 레이블 생성"
+    },
+    {
+      "id": "sf6",
+      "type": "subfeature",
+      "label": "우선순위 인사이트 선별",
+      "parentId": "f19",
+      "description": "빈도·임팩트 기준 핵심 인사이트 상위 자동 정렬"
+    }
+  ]
+}
