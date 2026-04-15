@@ -24,6 +24,7 @@ const envSchema = z.object({
   // Discord
   DISCORD_TOKEN: z.string().min(1, 'DISCORD_TOKEN이 필요합니다'),
   DISCORD_GUILD_ID: z.string().min(1),
+  DISCORD_CHANNEL_GENERAL: z.string().min(1),
   DISCORD_CHANNEL_LUFFY: z.string().min(1),
   DISCORD_CHANNEL_NAMI: z.string().min(1),
   DISCORD_CHANNEL_ZORO: z.string().min(1),
@@ -32,10 +33,10 @@ const envSchema = z.object({
   DISCORD_CHANNEL_CHOPPER: z.string().min(1),
   DISCORD_CHANNEL_ERROR: z.string().min(1),
 
-  // Notion
-  NOTION_TOKEN: z.string().min(1),
-  NOTION_CONTENT_DB_ID: z.string().min(1),
-  NOTION_PERFORMANCE_DB_ID: z.string().min(1),
+  // Notion (세팅 전까지 optional)
+  NOTION_TOKEN: z.string().optional(),
+  NOTION_CONTENT_DB_ID: z.string().optional(),
+  NOTION_PERFORMANCE_DB_ID: z.string().optional(),
   NOTION_LEAD_DB_ID: z.string().optional(),
   NOTION_RESEARCH_DB_ID: z.string().optional(),
   NOTION_DOM_SPEC_DB_ID: z.string().optional(),

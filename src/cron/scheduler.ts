@@ -2,6 +2,11 @@ import cron from 'node-cron';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
 
+// Sprint 2 job 등록 함수 — 에이전트 인스턴스를 받아 cron에 연결
+// 사용 예: initSprint2Jobs(namiAgent, sanjiAgent)
+export { registerDailyBriefingJob } from '@/cron/jobs/dailyBriefing.js';
+export { registerContentGenerateJob } from '@/cron/jobs/contentGenerate.js';
+
 interface JobDefinition {
   name: string;
   schedule: string;
