@@ -1,6 +1,7 @@
 import puppeteer, { type Browser } from 'puppeteer';
 import { logger } from '@/utils/logger.js';
 import { withRetry } from '@/utils/retry.js';
+import { nowIso } from '@/utils/timestamps.js';
 
 export interface CompetitorContent {
   url: string;
@@ -131,7 +132,7 @@ export async function crawlCompetitorProduct(url: string): Promise<CompetitorCon
         description: content.description,
         keywords: content.keywords,
         price: content.price || undefined,
-        crawledAt: new Date().toISOString(),
+        crawledAt: nowIso(),
       };
     } finally {
       await page.close();

@@ -1,6 +1,7 @@
 import puppeteer, { type Browser } from 'puppeteer';
 import { logger } from '@/utils/logger.js';
 import { withRetry } from '@/utils/retry.js';
+import { nowIso } from '@/utils/timestamps.js';
 
 export interface MarketInfo {
   source: string;        // 출처 URL
@@ -106,7 +107,7 @@ export async function crawlMarketNews(sources: string[]): Promise<MarketInfo[]> 
             summary: item.headline, // 상세 요약은 LLM이 처리
             category: 'news' as const,
             importance: 'medium' as const,
-            crawledAt: new Date().toISOString(),
+            crawledAt: nowIso(),
           }));
         } finally {
           await page.close();

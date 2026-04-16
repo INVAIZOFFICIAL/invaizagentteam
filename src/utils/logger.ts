@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { env } from '@/config/env.js';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 // LaunchAgent 환경에서 stdout 이 block-buffered 되어 로그가 지연되는 문제 회피.
 // console 출력 + 파일에도 동시 기록 (fs.appendFileSync 는 즉시 flush).
-const LOG_DIR = process.env.LUFFY_LOG_DIR ?? path.resolve(process.cwd(), 'logs');
+const LOG_DIR = env.LUFFY_LOG_DIR ?? path.resolve(process.cwd(), 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'app.log');
 
 try {

@@ -40,7 +40,6 @@ export function registerJob(job: JobDefinition): void {
       logger.info('cron', `완료: ${job.name}`);
     } catch (error) {
       logger.error('cron', `실패: ${job.name}`, error);
-      // TODO: Discord 에러 채널에 알림 (Discord 봇 연결 후 추가)
     } finally {
       locks.set(job.name, false);
     }

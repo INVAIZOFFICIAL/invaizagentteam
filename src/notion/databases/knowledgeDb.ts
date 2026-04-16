@@ -2,6 +2,8 @@ import { notionClient } from '@/notion/client.js';
 import { markdownToBlocks } from '@/notion/pages/pageBuilder.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
+import { todayDateOnly } from '@/utils/timestamps.js';
+import type { NotionPageLike, NotionPropertyBag } from '@/types/notion.types.js';
 
 // 지식 베이스 DB 에서 조회된 레퍼런스 카드 요약 (큐레이션용)
 export interface KnowledgeRefSummary {
@@ -74,8 +76,7 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const properties: Record<string, any> = {
+    const properties: NotionPropertyBag = {
       이름: { title: [{ text: { content: entry.title } }] },
       카테고리: { select: { name: entry.category } },
       수집자: { select: { name: entry.collector } },
@@ -97,7 +98,7 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
       properties['수집일'] = { date: { start: entry.collectedAt } };
     } else {
       properties['수집일'] = {
-        date: { start: new Date().toISOString().split('T')[0] },
+        date: { start: todayDateOnly() },
       };
     }
     if (entry.reliability) {
@@ -150,8 +151,7 @@ export async function queryRecentReferences(
       });
 
       for (const page of res.results) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const p = page as any;
+        const p = page as NotionPageLike;
         if (!p.properties) continue;
 
         const titleArr = p.properties['이름']?.title ?? [];

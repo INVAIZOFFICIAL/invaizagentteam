@@ -1,6 +1,8 @@
 import { runClaude } from '@/claude/client.js';
 import { NAMI_PERSONALITY } from '../nami.personality.js';
 import { logger } from '@/utils/logger.js';
+import { extractJsonFromText } from '@/utils/jsonExtraction.js';
+import { nowIso } from '@/utils/timestamps.js';
 
 export interface ContentPerformanceData {
   contentId: string;
@@ -68,8 +70,8 @@ ${dataText}
     timeoutMs: 120_000,
   });
 
-  const jsonMatch = rawText.match(/```json\n?([\s\S]*?)\n?```/) ?? rawText.match(/(\[[\s\S]*\])/);
-  if (!jsonMatch) {
+  const jsonRaw = extractJsonFromText(rawText, 'array');
+  if (!jsonRaw) {
     throw new Error(`성과 분석 응답에서 JSON 추출 실패:\n${rawText.slice(0, 200)}`);
   }
 
@@ -79,7 +81,7 @@ ${dataText}
     recommendations: string[];
     grade: 'S' | 'A' | 'B' | 'C' | 'D';
   };
-  const claudeAnalysis = JSON.parse(jsonMatch[1]) as ClaudeAnalysis[];
+  const claudeAnalysis = JSON.parse(jsonRaw) as ClaudeAnalysis[];
   const analysisMap = new Map(claudeAnalysis.map(a => [a.contentId, a]));
 
   logger.info('nami', `성과 분석 완료: ${data.length}개 콘텐츠`);
@@ -94,7 +96,7 @@ ${dataText}
       insights: analysis?.insights ?? [],
       recommendations: analysis?.recommendations ?? [],
       grade: analysis?.grade ?? 'C',
-      analyzedAt: new Date().toISOString(),
+      analyzedAt: nowIso(),
     };
   });
 }

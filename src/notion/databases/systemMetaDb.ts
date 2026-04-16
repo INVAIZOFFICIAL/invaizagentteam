@@ -1,6 +1,7 @@
 import { notionClient } from '@/notion/client.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
+import type { NotionPageLike, NotionPropertyBag } from '@/types/notion.types.js';
 
 export type JobResult = '성공' | '부분실패' | '실패' | '대기중';
 
@@ -42,8 +43,7 @@ export async function getJobState(jobName: string): Promise<JobState | undefined
     const page = res.results[0];
     if (!page || !('properties' in page)) return undefined;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const props = (page as any).properties;
+    const props = (page as NotionPageLike).properties ?? {};
     const lastRunStr: string | undefined = props['마지막실행시각']?.date?.start;
     const isActive: boolean = props['활성화']?.checkbox ?? false;
     const totalCount: number = props['누적처리개수']?.number ?? 0;
@@ -78,12 +78,10 @@ export async function updateJobState(
     ) {
       const page = await notionClient.pages.retrieve({ page_id: pageId });
       currentTotal =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (((page as any).properties?.['누적처리개수']?.number ?? 0) as number);
+        ((page as NotionPageLike).properties?.['누적처리개수']?.number ?? 0) as number;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const properties: Record<string, any> = {};
+    const properties: NotionPropertyBag = {};
 
     if (update.lastRunAt) {
       properties['마지막실행시각'] = {

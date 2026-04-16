@@ -2,6 +2,7 @@ import { notionClient } from '@/notion/client.js';
 import { markdownToBlocks } from './pageBuilder.js';
 import type { AgentName } from '@/types/agent.types.js';
 import { logger } from '@/utils/logger.js';
+import { todayDateOnly } from '@/utils/timestamps.js';
 
 interface UploadOptions {
   agentName: AgentName;
@@ -15,7 +16,7 @@ interface UploadOptions {
 // 제목 형식: [에이전트명] 작업명 — YYYY-MM-DD
 export async function uploadReport(options: UploadOptions): Promise<string> {
   const { agentName, databaseId, title, content, properties = {} } = options;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayDateOnly();
   const pageTitle = `[${agentName}] ${title} — ${today}`;
 
   const response = await notionClient.pages.create({

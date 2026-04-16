@@ -2,6 +2,7 @@ import { notionClient } from '@/notion/client.js';
 import { markdownToBlocks } from '@/notion/pages/pageBuilder.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
+import type { NotionPageLike, NotionPropertyBag } from '@/types/notion.types.js';
 
 // 노션 콘텐츠 DB 의 `채널` Select 값
 export type ContentChannel = 'Threads' | 'Blog';
@@ -45,8 +46,7 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const properties: Record<string, any> = {
+    const properties: NotionPropertyBag = {
       이름: { title: [{ text: { content: entry.title } }] },
       채널: { select: { name: entry.channel } },
       // `상태` 는 Notion Status 타입 (select 아님) — Status 필드는 `status: { name }` 포맷
@@ -161,8 +161,7 @@ export async function getPublishedThreadsContents(
     return res.results
       .map((page) => {
         if (!('properties' in page)) return null;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const props = (page as any).properties;
+        const props = (page as NotionPageLike).properties ?? {};
         type TitleProp = { title: { plain_text: string }[] };
         const titleProp = props['이름'] as TitleProp | undefined;
         const publishDate: string | undefined = props['발행일']?.date?.start;

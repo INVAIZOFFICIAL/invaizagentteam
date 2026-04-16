@@ -1,6 +1,8 @@
 import { runClaude } from '@/claude/client.js';
 import { NAMI_PERSONALITY } from '../nami.personality.js';
 import { logger } from '@/utils/logger.js';
+import { extractJsonFromText } from '@/utils/jsonExtraction.js';
+import { nowIso } from '@/utils/timestamps.js';
 import type { CompetitorContent } from './crawlCompetitor.js';
 
 export interface Qoo10ContentInput {
@@ -68,18 +70,17 @@ ${competitorContext}
     timeoutMs: 120_000,
   });
 
-  // JSON 파싱
-  const jsonMatch = rawText.match(/```json\n?([\s\S]*?)\n?```/) ?? rawText.match(/(\{[\s\S]*\})/);
-  if (!jsonMatch) {
+  const jsonRaw = extractJsonFromText(rawText, 'object');
+  if (!jsonRaw) {
     throw new Error(`Claude Code 응답에서 JSON 추출 실패:\n${rawText.slice(0, 200)}`);
   }
 
-  const parsed = JSON.parse(jsonMatch[1]) as Omit<Qoo10ContentOutput, 'generatedAt'>;
+  const parsed = JSON.parse(jsonRaw) as Omit<Qoo10ContentOutput, 'generatedAt'>;
 
   logger.info('nami', `Qoo10 콘텐츠 생성 완료: ${input.productName}`);
 
   return {
     ...parsed,
-    generatedAt: new Date().toISOString(),
+    generatedAt: nowIso(),
   };
 }

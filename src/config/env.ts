@@ -57,6 +57,9 @@ const envSchema = z.object({
 
   // 운영 환경
   NODE_ENV: z.enum(['development', 'production']).default('development'),
+
+  // 로그 디렉토리 (미지정 시 logger 에서 cwd/logs 사용)
+  LUFFY_LOG_DIR: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

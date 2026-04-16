@@ -1,6 +1,7 @@
 import { registerJob } from '@/cron/scheduler.js';
 import { CRON } from '@/cron/cronConfig.js';
 import { logger } from '@/utils/logger.js';
+import { nowIso } from '@/utils/timestamps.js';
 import { fetchMyRecentThreads, fetchReplies } from '@/threads/client.js';
 import { findContentPageByUrl } from '@/notion/databases/contentDb.js';
 import { saveComment, getExistingCommentIds } from '@/notion/databases/commentDb.js';
@@ -95,7 +96,7 @@ export async function fetchThreadsCommentsOnce(): Promise<void> {
           contentPageId,
           username: reply.username ?? 'unknown',
           text: reply.text ?? '',
-          timestamp: reply.timestamp ?? new Date().toISOString(),
+          timestamp: reply.timestamp ?? nowIso(),
         });
 
         if (savedPageId) {

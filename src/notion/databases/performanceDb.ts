@@ -1,6 +1,7 @@
 import { notionClient } from '@/notion/client.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
+import type { NotionPropertyBag } from '@/types/notion.types.js';
 
 export interface PerformanceSnapshot {
   contentPageId: string; // 콘텐츠 DB 페이지 ID (Relation)
@@ -29,8 +30,7 @@ export async function savePerformanceSnapshot(
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const properties: Record<string, any> = {
+    const properties: NotionPropertyBag = {
       이름: { title: [{ text: { content: snap.title } }] },
       콘텐츠: { relation: [{ id: snap.contentPageId }] },
       측정일: { date: { start: snap.measureDate } },

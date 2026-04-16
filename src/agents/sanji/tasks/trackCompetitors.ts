@@ -1,6 +1,8 @@
 import { runClaude } from '@/claude/client.js';
 import { SANJI_PERSONALITY } from '../sanji.personality.js';
 import { logger } from '@/utils/logger.js';
+import { extractJsonFromText } from '@/utils/jsonExtraction.js';
+import { nowIso } from '@/utils/timestamps.js';
 import type { MarketInfo } from './crawlMarket.js';
 
 export interface CompetitorSnapshot {
@@ -65,12 +67,12 @@ ${snapshotSummary || '경쟁사 데이터 없음'}
     timeoutMs: 120_000,
   });
 
-  const jsonMatch = rawText.match(/```json\n?([\s\S]*?)\n?```/) ?? rawText.match(/(\{[\s\S]*\})/);
+  const jsonRaw = extractJsonFromText(rawText, 'object');
 
   type ClaudeResult = { marketInsights: string[]; urgentAlerts: string[] };
   let parsed: ClaudeResult = { marketInsights: [], urgentAlerts: [] };
-  if (jsonMatch) {
-    parsed = JSON.parse(jsonMatch[1]) as ClaudeResult;
+  if (jsonRaw) {
+    parsed = JSON.parse(jsonRaw) as ClaudeResult;
   }
 
   logger.info('sanji', '경쟁사 인텔리전스 분석 완료');
@@ -79,6 +81,6 @@ ${snapshotSummary || '경쟁사 데이터 없음'}
     competitors: snapshots,
     marketInsights: parsed.marketInsights,
     urgentAlerts: parsed.urgentAlerts,
-    analyzedAt: new Date().toISOString(),
+    analyzedAt: nowIso(),
   };
 }

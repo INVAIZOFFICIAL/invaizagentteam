@@ -1,6 +1,7 @@
 import { notionClient } from '@/notion/client.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
+import type { NotionPageLike, NotionPropertyBag } from '@/types/notion.types.js';
 
 export interface CommentEntry {
   threadsReplyId: string; // Threads API reply id — 중복 방지 유니크 키
@@ -30,8 +31,7 @@ export async function saveComment(entry: CommentEntry): Promise<string | undefin
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const properties: Record<string, any> = {
+    const properties: NotionPropertyBag = {
       이름: {
         title: [{ text: { content: makeCommentTitle(entry.username, entry.text) } }],
       },
@@ -90,8 +90,7 @@ export async function getExistingCommentIds(): Promise<Set<string>> {
       });
       for (const page of res.results) {
         if (!('properties' in page)) continue;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const props = (page as any).properties;
+        const props = (page as NotionPageLike).properties ?? {};
         const replyId: string | undefined = props['댓글ID']?.rich_text?.[0]?.plain_text;
         if (replyId) ids.add(replyId);
       }
