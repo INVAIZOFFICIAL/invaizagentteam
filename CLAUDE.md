@@ -13,7 +13,7 @@ Claude Code + cron이 실제 업무 수행 엔진이며, 각 에이전트는 고
 
 | 카테고리 | 기술 |
 |---|---|
-| AI 엔진 | Claude Code (Anthropic SDK), Claude API (`claude-opus-4-6`) |
+| AI 엔진 | Claude Code CLI (로컬 `claude` 바이너리 spawn, Claude Max 구독 한도 활용) |
 | 런타임 | Node.js 24 LTS |
 | 패키지 매니저 | npm |
 | 디스코드 봇 | discord.js v14 |
@@ -93,7 +93,8 @@ npm run test:discord
 │   │   │   ├── nami.personality.ts
 │   │   │   └── tasks/
 │   │   │       ├── crawlCompetitor.ts
-│   │   │       ├── generateQoo10Content.ts
+│   │   │       ├── generateThreadsPost.ts    # 스레드 발행 초안 생성
+│   │   │       ├── generateBlogPost.ts       # Framer 블로그 발행 초안 생성
 │   │   │       └── analyzePerformance.ts
 │   │   ├── zoro/
 │   │   │   ├── ZoroAgent.ts       # 리드 수집 팀장
@@ -156,10 +157,9 @@ npm run test:discord
 │   │   │   └── domMonitor.ts      # 우솝 DOM 변동 감지 (매시간)
 │   │   └── cronConfig.ts          # cron 표현식 상수 관리
 │   │
-│   ├── claude/                    # Claude API 래퍼
-│   │   ├── client.ts              # Anthropic 클라이언트 (캐싱 포함)
-│   │   ├── promptBuilder.ts       # 시스템 프롬프트 빌더
-│   │   └── toolRegistry.ts        # Claude tool_use 정의 모음
+│   ├── claude/                    # Claude Code CLI 실행 래퍼
+│   │   ├── client.ts              # `claude` CLI spawn (runClaude 함수)
+│   │   └── promptBuilder.ts       # 시스템 프롬프트 빌더
 │   │
 │   ├── scrapers/                  # 크롤링 공통 유틸
 │   │   ├── puppeteerScraper.ts
@@ -278,7 +278,6 @@ import fs from 'fs/promises';
 
 // 2. 외부 패키지
 import { Client, GatewayIntentBits } from 'discord.js';
-import Anthropic from '@anthropic-ai/sdk';
 import { Client as NotionClient } from '@notionhq/client';
 
 // 3. 내부 모듈 — 절대 경로 사용 (tsconfig paths 설정)
@@ -334,22 +333,27 @@ Sprint 6 — 통합 QA, 운영 자동화 & 안정화
 
 ### 1. 캐릭터 인격 시스템 (BaseAgent)
 
-캐릭터 일관성은 시스템 프롬프트에서 결정된다. 모든 Claude API 호출 시 `AgentPersonality.systemPrompt`를 첫 번째 `system` 메시지로 주입하고, `tool_use` 응답 후 말투를 인격에 맞게 후처리한다.
+**실행 엔진은 Claude API가 아니라 Claude Code CLI다.** 비용 최소화(= Claude Max 구독 한도 활용)를 위해 `@anthropic-ai/sdk`로 `messages.create`를 호출하지 않는다. 대신 `src/claude/client.ts`의 `runClaude()`가 로컬 `claude` CLI를 `spawn`으로 실행해 결과를 받아온다.
+
+캐릭터 일관성은 시스템 프롬프트에서 결정된다. 각 에이전트는 `AgentPersonality.systemPrompt`를 `runClaude()`의 `systemPrompt` 옵션으로 전달하고, CLI 출력(text)을 파싱해 디스코드/노션에 반영한다.
 
 ```typescript
-// Claude API 호출 시 프롬프트 캐싱 활성화 필수
-const response = await anthropic.messages.create({
-  model: 'claude-opus-4-6',
-  system: [
-    {
-      type: 'text',
-      text: this.personality.systemPrompt,
-      cache_control: { type: 'ephemeral' }, // 인격 프롬프트는 캐싱
-    },
-  ],
-  messages: conversationHistory,
+// src/claude/client.ts 의 runClaude()를 사용한다 — API 키/SDK 호출 금지
+import { runClaude } from '@/claude/client';
+
+const output = await runClaude(userPrompt, this.name, {
+  systemPrompt: this.personality.systemPrompt,
+  maxTurns: 10,
+  timeoutMs: 120_000,
 });
 ```
+
+**금지 사항:**
+- `import Anthropic from '@anthropic-ai/sdk'` — SDK 경로는 API 비용을 발생시킨다
+- `process.env.ANTHROPIC_API_KEY` 참조 — 이 프로젝트는 API 키를 사용하지 않는다
+- `messages.create` / `cache_control` 등 SDK 전용 옵션 — CLI에는 해당 개념이 없다 (Claude Code 내부 캐싱 자동 적용)
+
+**프롬프트 캐싱 관련:** Claude Code CLI는 내부적으로 자동 캐싱을 수행하므로 코드에서 `cache_control`을 명시할 필요가 없다. 대신 같은 `systemPrompt`를 매 호출마다 동일하게 유지하는 것이 캐시 적중률을 높이는 방법이다.
 
 ### 2. 디스코드 메시지 → 에이전트 디스패치
 
@@ -434,14 +438,14 @@ interface DomSpec {
 ```
 금지: process.env.DISCORD_TOKEN 직접 접근 → config/env.ts 경유
 금지: .env 파일 Git 커밋 → .gitignore에 .env.local 반드시 포함
-금지: Claude API 키를 로그에 출력
+금지: ANTHROPIC_API_KEY 사용 — 이 프로젝트는 Claude Code CLI(Max 구독)로만 실행한다
 금지: 크롤링 결과(리드 개인정보)를 로컬 파일에 평문 저장
 ```
 
 ### 에이전트 인격 일관성
 
 ```
-금지: 인격 프롬프트 없이 Claude API 직접 호출 (캐릭터 붕괴)
+금지: 인격 프롬프트 없이 runClaude() 호출 (캐릭터 붕괴)
 금지: 에이전트가 자신의 전문 영역 밖 업무를 단독 수행
        → 루피에게 DOM 분석 요청 시 "우솝한테 물어봐!" 로 리다이렉트
 금지: 채널 라우팅 우회 (채널 ID 하드코딩 금지 — 반드시 config 사용)
@@ -467,12 +471,17 @@ interface DomSpec {
        → 운영 환경(맥미니)에서만 cron 활성화 (NODE_ENV=production 체크)
 ```
 
-### Claude API
+### Claude Code CLI 실행
 
 ```
-금지: 대화 히스토리 무제한 누적 (토큰 & 비용 폭증)
+금지: @anthropic-ai/sdk import 또는 messages.create 호출 (API 비용 발생, Max 한도 미활용)
+금지: ANTHROPIC_API_KEY 환경변수 설정/참조
+금지: src/claude/client.ts 외의 경로에서 `claude` 바이너리 직접 spawn
+       → 반드시 runClaude()를 경유 (로깅/타임아웃/에러 처리 일관성)
+금지: 대화 히스토리 무제한 누적 (CLI --max-turns 제한과 별개로 프롬프트 비대화 방지)
        → 최근 N턴만 유지하거나 요약 압축
-금지: 인격 시스템 프롬프트에 cache_control 없이 호출 (캐시 미적용)
+금지: systemPrompt를 매 호출마다 다르게 조립 (CLI 내부 캐시 미적중)
+       → 같은 에이전트는 같은 인격 문자열을 재사용
 금지: 에이전트 응답을 기다리는 동안 Discord 응답 없음 처리 누락
        → 장시간 작업은 "지금 분석 중이야..." 중간 메시지 먼저 전송
 ```
@@ -489,7 +498,7 @@ interface DomSpec {
 - [ ] 응답 말투가 캐릭터 인격에 맞음 (팀원 2인 이상 확인)
 - [ ] 업무 수행 결과가 노션에 자동 저장됨
 - [ ] 에러 발생 시 에러 내용을 캐릭터 말투로 Discord에 알림
-- [ ] Claude API 호출 시 `cache_control: ephemeral` 적용됨
+- [ ] Claude 호출은 `runClaude()` 경유 (SDK/ANTHROPIC_API_KEY 미사용)
 
 ### 태스크 단위 요건
 

@@ -1,7 +1,10 @@
 node_modules/
 dist/
+logs/
 .env.local
 .env.*.local
 *.log
 .DS_Store
 .harness/ai-results/
+.omc/
+**/.omc/

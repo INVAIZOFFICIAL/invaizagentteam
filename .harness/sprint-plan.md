@@ -14,10 +14,11 @@
 - [ ] TypeScript 5.x + ESLint + Prettier 설정, `tsconfig.json` paths 설정 (`@/*` → `src/*`)
 - [ ] `src/config/env.ts` — zod 환경변수 파싱 & 검증
   ```
-  ANTHROPIC_API_KEY, DISCORD_TOKEN, DISCORD_GUILD_ID
+  DISCORD_TOKEN, DISCORD_GUILD_ID
   DISCORD_CHANNEL_LUFFY/NAMI/ZORO/USOPP/SANJI/CHOPPER
   NOTION_TOKEN, NOTION_CONTENT_DB_ID, NOTION_LEAD_DB_ID ...
   THREADS_APP_ID, THREADS_APP_SECRET, THREADS_ACCESS_TOKEN
+  ※ ANTHROPIC_API_KEY는 사용하지 않음 — Claude Code CLI(Max 구독)를 spawn
   ```
 - [ ] `.env.example` 작성
 - [ ] `src/discord/bot.ts` — discord.js v14 Client 초기화

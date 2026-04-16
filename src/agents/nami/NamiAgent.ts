@@ -1,6 +1,6 @@
 import type { Message, TextChannel } from 'discord.js';
 import { BaseAgent } from '@/agents/base/BaseAgent.js';
-import { saveContentToNotion } from '@/notion/databases/contentDb.js';
+import { saveToKnowledgeBase } from '@/notion/databases/knowledgeDb.js';
 import { logger } from '@/utils/logger.js';
 import { NAMI_PERSONALITY } from './nami.personality.js';
 import { crawlCompetitorProduct } from './tasks/crawlCompetitor.js';
@@ -77,12 +77,15 @@ export class NamiAgent extends BaseAgent {
           const competitorData = await crawlCompetitorProduct(task.params.url);
           const summary = `경쟁사 분석 완료!\n- 제목: ${competitorData.title}\n- 키워드: ${competitorData.keywords.slice(0, 5).join(', ')}`;
 
-          // 노션에 저장
-          const notionUrl = await saveContentToNotion({
+          // 경쟁사 분석은 사단 공용 지식 베이스 DB 로 저장 (콘텐츠 DB 아님)
+          const notionUrl = await saveToKnowledgeBase({
             title: `[나미] 경쟁사 분석 — ${competitorData.title} — ${new Date().toLocaleDateString('ko-KR')}`,
-            type: 'competitor_analysis',
+            category: '경쟁사',
+            collector: 'nami',
             content: JSON.stringify(competitorData, null, 2),
-            status: '완료',
+            summary: `경쟁사 "${competitorData.title}" 의 키워드 ${competitorData.keywords.slice(0, 3).join(', ')} 분석`,
+            sourceUrl: task.params.url,
+            reliability: '1차자료',
           });
 
           return {
@@ -108,7 +111,9 @@ export class NamiAgent extends BaseAgent {
       }
 
       case 'generate_content': {
-        // 간단한 예시 — 실제로는 메시지에서 상품 정보를 파싱
+        // TODO: 이 플로우는 레거시 Qoo10 용. Threads/Blog 콘텐츠 생성으로 재작업 필요.
+        //       현재는 Qoo10 생성만 실행하고 노션 저장은 생략 (새 콘텐츠 DB 스키마 와 무관).
+        //       다음 작업: generateThreadsPost / generateBlogPost 태스크 신설 + 여기에 연결.
         try {
           const content = await generateQoo10Content({
             productName: 'INVAIZ DayZero',
@@ -119,21 +124,18 @@ export class NamiAgent extends BaseAgent {
           });
 
           const summary =
-            `콘텐츠 생성 완료!\n- 제목: ${content.title}\n- 키워드: ${content.keywords.slice(0, 5).join(', ')}`;
+            `콘텐츠 생성 완료! (임시 — 노션 저장 보류)\n- 제목: ${content.title}\n- 키워드: ${content.keywords.slice(0, 5).join(', ')}`;
 
-          const notionUrl = await saveContentToNotion({
-            title: `[나미] Qoo10 콘텐츠 — ${content.title} — ${new Date().toLocaleDateString('ko-KR')}`,
-            type: 'qoo10_content',
-            content: `## 제목\n${content.title}\n\n## 짧은 설명\n${content.shortDescription}\n\n## 상세 설명\n${content.fullDescription}\n\n## 키워드\n${content.keywords.join(', ')}`,
-            status: '완료',
-          });
+          logger.warn(
+            'nami',
+            '레거시 generate_content 호출 — Threads/Blog 플로우로 재작업 대기중이라 노션 저장 생략',
+          );
 
           return {
             success: true,
             agentName: 'nami',
             taskType: 'generate_content',
             summary,
-            notionPageUrl: notionUrl,
             executedAt: new Date(),
           };
         } catch (error) {

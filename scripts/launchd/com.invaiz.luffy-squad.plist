@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.invaiz.luffy-squad</string>
+
+    <!-- 빌드된 dist/index.js 를 Node 로 직접 실행 (tsx 없이, tsc-alias 로 @/ 해결 완료) -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/sonjuwan/.nvm/versions/node/v24.15.0/bin/node</string>
+        <string>/Users/sonjuwan/develop/invaizagentteam/dist/index.js</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sonjuwan/develop/invaizagentteam</string>
+
+    <!-- 부팅·로그인 시 자동 시작 + 죽으면 재시작 -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <!-- production 플래그 (cron 활성화) + claude CLI 접근 가능한 PATH -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>NODE_ENV</key>
+        <string>production</string>
+        <key>PATH</key>
+        <string>/Users/sonjuwan/.local/bin:/Users/sonjuwan/.nvm/versions/node/v24.15.0/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/sonjuwan</string>
+        <!-- 로그는 TCC 보호 밖인 ~/Library/Logs 로 출력 (Documents 는 LaunchAgent 쓰기 차단 가능성) -->
+        <key>LUFFY_LOG_DIR</key>
+        <string>/Users/sonjuwan/Library/Logs/invaiz-luffy</string>
+    </dict>
+
+    <!-- 로그 출력 (LaunchAgent 자체 stdout/stderr 도 Library/Logs 로) -->
+    <key>StandardOutPath</key>
+    <string>/Users/sonjuwan/Library/Logs/invaiz-luffy/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sonjuwan/Library/Logs/invaiz-luffy/launchd.err.log</string>
+
+    <!-- 크래시 재시작 최소 간격 (무한 재시작 루프 방지) -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <!-- 프로세스 대상 Nice 값 (낮은 CPU 우선순위, 맥미니가 다른 작업도 할 여지) -->
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>

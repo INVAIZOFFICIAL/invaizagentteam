@@ -6,6 +6,9 @@ import { logger } from '@/utils/logger.js';
 // 사용 예: initSprint2Jobs(namiAgent, sanjiAgent)
 export { registerDailyBriefingJob } from '@/cron/jobs/dailyBriefing.js';
 export { registerContentGenerateJob } from '@/cron/jobs/contentGenerate.js';
+export { registerFetchThreadsCommentsJob } from '@/cron/jobs/fetchThreadsComments.js';
+export { registerFetchThreadsInsightsJob } from '@/cron/jobs/fetchThreadsInsights.js';
+export { registerNamiReferenceJobs } from '@/cron/jobs/namiReferences.js';
 
 interface JobDefinition {
   name: string;

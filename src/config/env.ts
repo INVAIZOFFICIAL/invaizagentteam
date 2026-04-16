@@ -35,16 +35,22 @@ const envSchema = z.object({
 
   // Notion (세팅 전까지 optional)
   NOTION_TOKEN: z.string().optional(),
+  NOTION_PARENT_PAGE_ID: z.string().optional(),
   NOTION_CONTENT_DB_ID: z.string().optional(),
   NOTION_PERFORMANCE_DB_ID: z.string().optional(),
+  NOTION_COMMENT_DB_ID: z.string().optional(),
+  NOTION_KNOWLEDGE_DB_ID: z.string().optional(),
+  NOTION_SYSTEM_META_DB_ID: z.string().optional(),
   NOTION_LEAD_DB_ID: z.string().optional(),
   NOTION_RESEARCH_DB_ID: z.string().optional(),
   NOTION_DOM_SPEC_DB_ID: z.string().optional(),
+  NOTION_APPLICANT_DB_ID: z.string().optional(),
 
   // Threads
   THREADS_APP_ID: z.string().optional(),
   THREADS_APP_SECRET: z.string().optional(),
   THREADS_ACCESS_TOKEN: z.string().optional(),
+  THREADS_USER_ID: z.string().optional(),
 
   // SendGrid
   SENDGRID_API_KEY: z.string().optional(),
