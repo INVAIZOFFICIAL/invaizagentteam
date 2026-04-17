@@ -448,7 +448,7 @@ ${cls.learning || '(미분류)'}
 // 최상위 오케스트레이터 (cron 진입점)
 // ─────────────────────────────────────────────────────────
 
-export async function collectReferencesOnce(): Promise<{
+export async function collectReferencesOnce(targetHandle?: string): Promise<{
   attempted: number;
   collected: number;
   saved: number;
@@ -457,8 +457,20 @@ export async function collectReferencesOnce(): Promise<{
   const cutoff = Date.now() - MAX_POST_AGE_HOURS * 3_600_000;
   const batch: Array<{ acc: ThreadsSeedAccount; post: RawThreadsPost }> = [];
 
+  // 특정 계정만 수집 시 임시 계정 객체 생성
+  const handle = targetHandle?.startsWith('@') ? targetHandle : targetHandle ? `@${targetHandle}` : null;
+  const accounts: ThreadsSeedAccount[] = handle
+    ? [{
+        handle,
+        url: `https://www.threads.com/${handle}`,
+        category: '마케팅',
+        language: '한국어',
+        addedAt: new Date().toISOString().split('T')[0],
+      }]
+    : THREADS_SEED_ACCOUNTS;
+
   try {
-    for (const acc of THREADS_SEED_ACCOUNTS) {
+    for (const acc of accounts) {
       try {
         const posts = await fetchProfilePosts(browser, acc);
         for (const p of posts) {
@@ -515,9 +527,9 @@ export async function collectReferencesOnce(): Promise<{
     }
   }
 
-  logger.info('nami', `수집 완료: 시드 ${THREADS_SEED_ACCOUNTS.length}개 방문, 통과 ${batch.length}건, 저장 ${saved}건`);
+  logger.info('nami', `수집 완료: 시드 ${accounts.length}개 방문, 통과 ${batch.length}건, 저장 ${saved}건`);
   return {
-    attempted: THREADS_SEED_ACCOUNTS.length,
+    attempted: accounts.length,
     collected: batch.length,
     saved,
   };

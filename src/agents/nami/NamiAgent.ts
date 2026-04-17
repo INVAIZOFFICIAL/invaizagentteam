@@ -21,6 +21,16 @@ export class NamiAgent extends BaseAgent {
     // 실행 의도 동사 패턴
     const actionVerbs = /해줘|해달라|해봐|해줘요|부탁|시작|맡겨|진행|실행|돌려|돌려줘/;
 
+    // 특정 계정 수집 — "@handle 수집해줘" 패턴
+    const handleMatch = content.match(/@([\w.]+)/);
+    if (
+      handleMatch &&
+      (lower.includes('수집') || lower.includes('크롤') || lower.includes('가져') || lower.includes('레퍼런스')) &&
+      actionVerbs.test(lower)
+    ) {
+      return { agentName: 'nami', action: 'collect_references', params: { handle: handleMatch[1] }, rawMessage: content };
+    }
+
     // 레퍼런스 수집 — "레퍼런스" + "수집/모아/찾아/가져" + 실행 동사
     if (
       lower.includes('레퍼런스') &&
@@ -153,14 +163,16 @@ export class NamiAgent extends BaseAgent {
 
       case 'collect_references': {
         const channel = message.channel as TextChannel;
-        await channel.send('🍊 레퍼런스 수집 시작할게요. 잠깐만요.');
+        const targetHandle = task.params.handle as string | undefined;
+        const targetLabel = targetHandle ? `@${targetHandle}` : '전체 시드 계정';
+        await channel.send(`🍊 레퍼런스 수집 시작할게요 (${targetLabel}). 잠깐만요.`);
         try {
           const { collectReferencesOnce } = await import('./tasks/collectReferences.js');
-          const result = await collectReferencesOnce();
+          const result = await collectReferencesOnce(targetHandle);
           const dbId = env.NOTION_KNOWLEDGE_DB_ID?.replace(/-/g, '');
           const dbLink = dbId ? `\n📎 https://www.notion.so/${dbId}` : '';
           await channel.send(
-            `🍊 레퍼런스 수집 완료했어요.\n새로 저장: **${result.saved}건** / 전체 처리: ${result.attempted}건${dbLink}`,
+            `🍊 레퍼런스 수집 완료했어요 (${targetLabel}).\n새로 저장: **${result.saved}건** / 전체 처리: ${result.attempted}건${dbLink}`,
           );
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
