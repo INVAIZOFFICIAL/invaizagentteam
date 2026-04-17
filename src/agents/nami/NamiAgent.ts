@@ -17,10 +17,20 @@ export class NamiAgent extends BaseAgent {
   protected async parseTask(content: string): Promise<ParsedTask> {
     const lower = content.toLowerCase();
 
+    // 레퍼런스 수집 요청 — 스레드 초안 체크보다 먼저 (우선순위)
+    if (lower.includes('레퍼런스') && (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져') || lower.includes('맡'))) {
+      return {
+        agentName: 'nami',
+        action: 'collect_references',
+        params: {},
+        rawMessage: content,
+      };
+    }
+
     // 스레드 초안 생성 요청
     if (
       lower.includes('초안') ||
-      (lower.includes('스레드') && !lower.includes('성과')) ||
+      (lower.includes('스레드') && !lower.includes('성과') && !lower.includes('레퍼런스')) ||
       lower.includes('threads') ||
       lower.includes('포스트 만들어') ||
       lower.includes('포스트 생성')
@@ -28,16 +38,6 @@ export class NamiAgent extends BaseAgent {
       return {
         agentName: 'nami',
         action: 'generate_threads_post',
-        params: {},
-        rawMessage: content,
-      };
-    }
-
-    // 레퍼런스 수집 요청
-    if (lower.includes('레퍼런스') && (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져'))) {
-      return {
-        agentName: 'nami',
-        action: 'collect_references',
         params: {},
         rawMessage: content,
       };
