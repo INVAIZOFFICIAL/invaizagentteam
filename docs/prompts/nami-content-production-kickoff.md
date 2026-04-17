@@ -1,5 +1,11 @@
 # 나미 콘텐츠 생성·발행 체계 정의 — 킥오프 프롬프트
 
+> **✅ 완료 — 2026-04-17.** 6개 섹션 Q&A 완료.
+> 확정 내용: `docs/agents/nami/content-production.md`
+> 구현 프롬프트: `docs/prompts/nami-content-production-implement.md`
+
+---
+
 > 이 문서는 다음 세션에서 **나미 콘텐츠 생성·검수·발행·성과 측정** 체계를 정의하기 위한 가이드다.
 > "자 이제 나미 콘텐츠 생산 체계 잡자" 라고 하면 이 문서를 먼저 읽고 바로 Q&A 시작.
 

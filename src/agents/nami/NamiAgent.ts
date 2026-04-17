@@ -16,6 +16,22 @@ export class NamiAgent extends BaseAgent {
   protected async parseTask(content: string): Promise<ParsedTask> {
     const lower = content.toLowerCase();
 
+    // 스레드 초안 생성 요청
+    if (
+      lower.includes('초안') ||
+      (lower.includes('스레드') && !lower.includes('성과')) ||
+      lower.includes('threads') ||
+      lower.includes('포스트 만들어') ||
+      lower.includes('포스트 생성')
+    ) {
+      return {
+        agentName: 'nami',
+        action: 'generate_threads_post',
+        params: {},
+        rawMessage: content,
+      };
+    }
+
     // 경쟁사 크롤링 요청 감지
     if (lower.includes('경쟁사') || lower.includes('크롤') || lower.includes('벤치')) {
       // URL 추출 시도
@@ -151,10 +167,38 @@ export class NamiAgent extends BaseAgent {
         }
       }
 
+      case 'generate_threads_post': {
+        const { generateThreadsPost } = await import('./tasks/generateThreadsPost.js');
+        await generateThreadsPost();
+        return {
+          success: true,
+          agentName: 'nami',
+          taskType: 'generate_threads_post',
+          summary: '스레드 초안 2건 생성 완료',
+          executedAt: new Date(),
+        };
+      }
+
       default: {
+        // 활성 검수 세션이 있으면 approval 루프 우선 처리
+        const { draftSessions } = await import('./tasks/generateThreadsPost.js');
+        if (draftSessions.has(message.channelId)) {
+          const { handleContentApproval } = await import('./tasks/submitForApproval.js');
+          const handled = await handleContentApproval(message);
+          if (handled) {
+            return {
+              success: true,
+              agentName: 'nami',
+              taskType: 'content_approval',
+              summary: '검수 처리 완료',
+              executedAt: new Date(),
+            };
+          }
+        }
+
         // Claude에게 자유 형식으로 답변 요청
         const response = await this.askClaude(task.rawMessage);
-        void channel; // 직접 사용 안 함 — 부모 클래스가 처리
+        void channel;
         return {
           success: true,
           agentName: 'nami',

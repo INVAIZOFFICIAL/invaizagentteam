@@ -9,6 +9,7 @@ export { registerContentGenerateJob } from '@/cron/jobs/contentGenerate.js';
 export { registerFetchThreadsCommentsJob } from '@/cron/jobs/fetchThreadsComments.js';
 export { registerFetchThreadsInsightsJob } from '@/cron/jobs/fetchThreadsInsights.js';
 export { registerNamiReferenceJobs } from '@/cron/jobs/namiReferences.js';
+export { registerPublishContentJob } from '@/cron/jobs/publishContent.js';
 
 interface JobDefinition {
   name: string;

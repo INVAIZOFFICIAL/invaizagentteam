@@ -131,6 +131,77 @@ export async function fetchPostInsights(mediaId: string): Promise<ThreadsInsight
 // Replies (댓글)
 // ─────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────
+// Publishing (발행)
+// ─────────────────────────────────────────────────────────
+
+async function threadsPost<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+  const token = env.THREADS_ACCESS_TOKEN;
+  if (!token) throw new Error('THREADS_ACCESS_TOKEN이 설정되지 않았습니다.');
+
+  const url = new URL(API_BASE + path);
+  url.searchParams.set('access_token', token);
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+
+  const res = await fetch(url.toString(), { method: 'POST' });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Threads API POST ${res.status} on ${path}: ${body}`);
+  }
+  return (await res.json()) as T;
+}
+
+/**
+ * 텍스트 미디어 컨테이너 생성 (발행 1단계)
+ * @returns creation_id (이후 publishContainer 에 전달)
+ */
+export async function createMediaContainer(text: string): Promise<string> {
+  const userId = env.THREADS_USER_ID;
+  if (!userId) throw new Error('THREADS_USER_ID가 설정되지 않았습니다.');
+
+  const res = await threadsPost<{ id: string }>(`/${userId}/threads`, {
+    media_type: 'TEXT',
+    text,
+  });
+  return res.id;
+}
+
+/**
+ * 컨테이너 발행 (발행 2단계)
+ * @returns 발행된 Threads 글 ID
+ */
+export async function publishContainer(containerId: string): Promise<string> {
+  const userId = env.THREADS_USER_ID;
+  if (!userId) throw new Error('THREADS_USER_ID가 설정되지 않았습니다.');
+
+  const res = await threadsPost<{ id: string }>(`/${userId}/threads_publish`, {
+    creation_id: containerId,
+  });
+  return res.id;
+}
+
+/**
+ * 텍스트 포스트 1건 발행 (컨테이너 생성 → 발행 → permalink 조회)
+ */
+export async function publishTextPost(text: string): Promise<{ id: string; permalink?: string }> {
+  logger.info('threads', `텍스트 발행 시작 (${text.length}자)`);
+
+  const containerId = await createMediaContainer(text);
+  const postId = await publishContainer(containerId);
+  logger.info('threads', `발행 완료: postId=${postId}`);
+
+  // permalink 조회 (직후 조회이므로 최근 5건 안에 있음)
+  try {
+    const recent = await fetchMyRecentThreads(new Date(Date.now() - 120_000), 5);
+    const match = recent.find((p) => p.id === postId);
+    return { id: postId, permalink: match?.permalink };
+  } catch {
+    return { id: postId };
+  }
+}
+
 /**
  * 특정 스레드 글에 달린 댓글(답글) 목록 조회
  * @param threadId 대상 글 ID (Threads API 내부 ID)

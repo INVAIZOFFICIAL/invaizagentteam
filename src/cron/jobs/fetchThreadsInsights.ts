@@ -7,8 +7,9 @@ import { savePerformanceSnapshot, milestoneExists } from '@/notion/databases/per
 import { getJobState, updateJobState, type JobResult } from '@/notion/databases/systemMetaDb.js';
 
 const JOB_NAME = 'threads_insights_fetch';
-const MILESTONES = [0, 1, 3, 7, 14, 30] as const;
-const FETCH_WINDOW_DAYS = 30;
+// 발행 후 5일간 매일 1회 수집 (D+1~D+5)
+const MILESTONES = [1, 2, 3, 4, 5] as const;
+const FETCH_WINDOW_DAYS = 5;
 
 /**
  * 스레드 성과 지표 1회 마일스톤 수집
@@ -142,7 +143,7 @@ export async function fetchThreadsInsightsOnce(): Promise<void> {
 export function registerFetchThreadsInsightsJob(): void {
   registerJob({
     name: '나미:스레드성과수집',
-    schedule: CRON.EVERY_6H,
+    schedule: CRON.DAILY_14,
     fn: fetchThreadsInsightsOnce,
   });
 }

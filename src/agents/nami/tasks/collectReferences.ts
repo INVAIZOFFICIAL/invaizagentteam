@@ -33,6 +33,7 @@ export interface RawThreadsPost {
   replies: number;
   reposts: number;
   shares: number;
+  imageUrls: string[];
 }
 
 // 브라우저 컨텍스트에서 직접 실행되는 DOM 추출 스크립트.
@@ -64,6 +65,13 @@ const EXTRACTION_SCRIPT = `
       if (match) return parseMetric(match[1]);
     }
     return 0;
+  }
+
+  // 해시태그 링크 텍스트에 # 접두사 보정 (Threads 가 a 태그로 처리시 # 생략 케이스)
+  var hashLinks = document.querySelectorAll('a[href*="/tags/"]');
+  for (var h = 0; h < hashLinks.length; h++) {
+    var ht = (hashLinks[h].innerText || '').trim();
+    if (ht && !ht.startsWith('#')) hashLinks[h].innerText = '#' + ht;
   }
 
   var postLinks = Array.prototype.slice.call(
@@ -100,21 +108,64 @@ const EXTRACTION_SCRIPT = `
 
     var likes = extractMetric(container, ['좋아요', 'Like']);
     var replies = extractMetric(container, ['댓글', '답글', 'Reply', 'Replies']);
-    var reposts = extractMetric(container, ['리포스트', 'Repost']);
+    var reposts = extractMetric(container, ['리포스트', '인용', 'Repost', 'Quote']);
     var shares = extractMetric(container, ['공유하기', '공유', 'Share']);
 
-    var raw = container.innerText || '';
-    var lines = raw.split('\\n').map(function (l) {
-      return l.trim();
-    }).filter(Boolean);
-    var textLines = [];
-    for (var j = 0; j < lines.length; j++) {
-      var l = lines[j];
-      if (/^\\d+[.,\\d]*[KMkm]?$/.test(l)) continue;
-      if (/^(답글|댓글|리포스트|좋아요|공유|공유하기|Reply|Replies|Repost|Like|Share|Send)$/.test(l)) continue;
-      textLines.push(l);
-    }
-    var text = textLines.join('\\n').trim();
+    // DOM 재귀 탐색으로 단락·이미지 추출 (<div>/<p> 경계 → \n\n, img → [Image #N])
+    var imageUrls = [];
+    var parts = [];
+    var buf = '';
+    var walk = function(node) {
+      if (node.nodeType === 3) {
+        buf += node.textContent;
+      } else if (node.nodeType === 1) {
+        var tag = (node.tagName || '').toLowerCase();
+        if (tag === 'svg' || tag === 'script' || tag === 'style') return;
+        if (tag === 'br') { buf += '\\n'; return; }
+        if (tag === 'img') {
+          var src = node.src || '';
+          if (src &&
+              (src.indexOf('cdninstagram.com') >= 0 || src.indexOf('fbcdn.net') >= 0) &&
+              src.indexOf('s150x150') < 0 && src.indexOf('s320x320') < 0 && src.indexOf('s96x96') < 0) {
+            imageUrls.push(src);
+            if (buf.trim()) { parts.push(buf.trim()); buf = ''; }
+            parts.push('[Image #' + imageUrls.length + ']');
+          }
+          return;
+        }
+        var snapBuf = buf;
+        for (var ci = 0; ci < node.childNodes.length; ci++) walk(node.childNodes[ci]);
+        if (tag === 'div' || tag === 'p') {
+          var added = buf.slice(snapBuf.length).trim();
+          if (added) {
+            if (snapBuf.trim()) parts.push(snapBuf.trim());
+            parts.push(added);
+            buf = '';
+          }
+        }
+      }
+    };
+    walk(container);
+    if (buf.trim()) parts.push(buf.trim());
+
+    var NOISE = /^\\d+[.,\\d]*[KMkm]?$|^(답글|댓글|리포스트|좋아요|공유|공유하기|Reply|Replies|Repost|Like|Share|Send)$|^\\d+(일|시간|분|초|주|개월)전?$|^(방금|just now)$|^\\d+[dhmsw]$/i;
+    var authorHandle = (permalink.match(/\\/@([\\w.]+)\\/post\\//) || [])[1] || '';
+
+    var filtered = parts.map(function(p) {
+      if (p.startsWith('[Image #')) return p;
+      var lines = p.split('\\n').filter(function(l) {
+        l = l.trim();
+        if (!l) return false;
+        if (NOISE.test(l)) return false;
+        if (authorHandle && (l === authorHandle || l === '@' + authorHandle)) return false;
+        return true;
+      });
+      return lines.join('\\n');
+    }).filter(function(p) {
+      return p.startsWith('[Image #') || p.trim().length > 0;
+    });
+
+    var text = filtered.join('\\n\\n').trim();
     if (!text) continue;
 
     results[permalink] = {
@@ -125,6 +176,7 @@ const EXTRACTION_SCRIPT = `
       replies: replies,
       reposts: reposts,
       shares: shares,
+      imageUrls: imageUrls,
     };
     order.push(permalink);
   }
@@ -177,7 +229,108 @@ async function fetchProfilePosts(
     // 문자열 IIFE 로 전달해서 브라우저에서 직접 평가.
     const raw = (await page.evaluate(EXTRACTION_SCRIPT)) as RawThreadsPost[];
 
-    return raw;
+    // 작성자 핸들·표시이름이 본문 첫 줄에 섞이는 경우 제거
+    const bareHandle = acc.handle.replace('@', '');
+    return raw.map((p) => ({
+      ...p,
+      text: p.text
+        .split('\n')
+        .filter((l) => l.trim() !== bareHandle && l.trim() !== acc.handle)
+        .join('\n')
+        .trim(),
+    }));
+  } finally {
+    await context.close();
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// 작성자 self-reply 수집 (포스트 permalink 방문)
+// ─────────────────────────────────────────────────────────
+
+function buildSelfReplyScript(handle: string): string {
+  // handle은 seedAccounts config에서 온 고정값 (외부 입력 아님)
+  const safeHandle = handle.replace('@', '').replace(/[^a-zA-Z0-9_.]/g, '');
+  return `
+(function () {
+  var authorHandle = '${safeHandle}';
+  var allLinks = Array.prototype.slice.call(document.querySelectorAll('a[href]'));
+  var authorLinks = allLinks.filter(function(a) {
+    return a.href && a.href.indexOf('/' + authorHandle + '/') >= 0;
+  });
+
+  var seen = {};
+  var selfReplies = [];
+
+  for (var i = 0; i < authorLinks.length; i++) {
+    var link = authorLinks[i];
+    var container = link.parentElement;
+    var found = false;
+    for (var d = 0; d < 12 && container; d++) {
+      if (container.querySelector('time[datetime]')) {
+        found = true;
+        break;
+      }
+      container = container.parentElement;
+    }
+    if (!found || !container) continue;
+
+    var timeEl = container.querySelector('time[datetime]');
+    var ts = timeEl ? timeEl.getAttribute('datetime') : '';
+    var key = ts + '|' + (container.innerText || '').slice(0, 40);
+    if (seen[key]) continue;
+    seen[key] = true;
+
+    var raw = container.innerText || '';
+    var lines = raw.split('\\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var textLines = [];
+    for (var j = 0; j < lines.length; j++) {
+      var l = lines[j];
+      if (/^\\d+[.,\\d]*[KMkm]?$/.test(l)) continue;
+      if (/^(답글|댓글|리포스트|좋아요|공유|공유하기|Reply|Replies|Repost|Like|Share|Send)$/.test(l)) continue;
+      textLines.push(l);
+    }
+    var text = textLines.join('\\n').trim();
+    if (text) selfReplies.push(text);
+  }
+
+  return selfReplies;
+})()
+`;
+}
+
+async function fetchSelfReplies(
+  browser: Browser,
+  permalink: string,
+  authorHandle: string,
+): Promise<string[]> {
+  const context = await browser.newContext({
+    userAgent: CHROME_UA,
+    locale: 'ko-KR',
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await context.newPage();
+  try {
+    const response = await page.goto(permalink, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+    if (!response || !response.ok()) return [];
+
+    try {
+      await page.waitForSelector('time[datetime]', { timeout: 8_000 });
+    } catch {
+      return [];
+    }
+
+    // tsx의 __name 헬퍼 주입 회피를 위해 문자열 IIFE로 전달 (EXTRACTION_SCRIPT 동일 패턴)
+    const script = buildSelfReplyScript(authorHandle);
+    const replies = (await page.evaluate(script)) as string[];
+
+    // 첫 번째 원소는 원본 포스트 본문과 겹칠 가능성 높으므로 제거
+    return replies.slice(1);
+  } catch {
+    return [];
   } finally {
     await context.close();
   }
@@ -236,27 +389,23 @@ ${posts
 // 지식 베이스 DB 저장
 // ─────────────────────────────────────────────────────────
 
-function engagementScore(p: RawThreadsPost): number {
-  return p.likes + p.reposts * 3 + p.replies * 2;
+function buildContentText(post: RawThreadsPost, selfReplies: string[]): string {
+  const parts = [post.text, ...selfReplies];
+  return parts.join('\n---\n');
 }
 
 async function saveReference(
   acc: ThreadsSeedAccount,
   post: RawThreadsPost,
   cls: PostClassification,
+  selfReplies: string[],
 ): Promise<void> {
-  const score = engagementScore(post);
-  const titleExcerpt = post.text.slice(0, 40).replace(/\s+/g, ' ');
-  const title = `[나미] 레퍼런스 — ${acc.handle} — ${titleExcerpt}…`;
+  // 포스트 첫 줄을 제목으로 — 훅 문장이 곧 콘텐츠 제목
+  const firstLine = post.text.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? post.text.slice(0, 60);
+  const title = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
+  const contentText = buildContentText(post, selfReplies);
 
-  // 본문 먼저, 배울 점 다음, 메타 정보는 맨 아래 — 가독성 우선.
-  const body = `## 본문
-
-${post.text}
-
----
-
-## 배울 점
+  const body = `## 배울 점
 
 ${cls.learning || '(미분류)'}
 
@@ -267,22 +416,27 @@ ${cls.learning || '(미분류)'}
 - **작성자**: ${acc.handle} (시드: ${acc.category})
 - **작성시각**: ${post.timestamp}
 - **링크**: ${post.permalink}
-- **지표**: ❤ ${post.likes} · 💬 ${post.replies} · 🔁 ${post.reposts} · ↗ ${post.shares} · **Score ${score}**
 - **분류**: ${cls.hookingType} · ${cls.topicCategory} · ${cls.language}
 `;
 
   await saveToKnowledgeBase({
     title,
-    category: '레퍼런스콘텐츠',
+    category: '스레드 레퍼런스',
     collector: 'nami',
     content: body,
+    contentText,
+    author: acc.handle,
+    likes: post.likes,
+    replies: post.replies,
+    reposts: post.reposts,
+    shares: post.shares,
+    imageUrls: post.imageUrls,
     summary: post.text.slice(0, 180).replace(/\s+/g, ' '),
     sourceUrl: post.permalink,
     tags: [
       `후킹:${cls.hookingType}`,
       `업종:${cls.topicCategory}`,
       `언어:${cls.language}`,
-      `score:${score}`,
       `seed:${acc.category}`,
     ],
     reliability: '1차자료',
@@ -327,12 +481,34 @@ export async function collectReferencesOnce(): Promise<{
   logger.info('nami', `총 ${batch.length}건 큐레이션 대상. 배치 분류 시작.`);
   const classifications = await classifyPostsBatch(batch.map((b) => b.post));
 
+  // self-reply 수집 — permalink당 추가 방문이 필요하므로 브라우저 재사용
+  const selfRepliesMap = new Map<string, string[]>();
+  const replyBrowser = await chromium.launch({ headless: true });
+  try {
+    for (const { acc, post } of batch) {
+      try {
+        const replies = await fetchSelfReplies(replyBrowser, post.permalink, acc.handle);
+        selfRepliesMap.set(post.permalink, replies);
+        if (replies.length > 0) {
+          logger.info('nami', `self-reply ${replies.length}건: ${acc.handle}`);
+        }
+      } catch (err) {
+        logger.warn('nami', `self-reply 수집 실패: ${post.permalink}`, err);
+        selfRepliesMap.set(post.permalink, []);
+      }
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+  } finally {
+    await replyBrowser.close();
+  }
+
   let saved = 0;
   for (let i = 0; i < batch.length; i++) {
     const { acc, post } = batch[i];
     const cls = classifications[i];
+    const selfReplies = selfRepliesMap.get(post.permalink) ?? [];
     try {
-      await saveReference(acc, post, cls);
+      await saveReference(acc, post, cls, selfReplies);
       saved += 1;
     } catch (err) {
       logger.warn('nami', `저장 실패: ${acc.handle} ${post.permalink}`, err);

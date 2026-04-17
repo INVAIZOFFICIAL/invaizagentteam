@@ -181,6 +181,129 @@ export async function getPublishedThreadsContents(
   }
 }
 
+export interface PendingContent {
+  pageId: string;
+  title: string;
+  publishDate: string; // ISO datetime
+  hookCopy?: string;
+}
+
+/**
+ * 발행대기 상태이면서 발행예정일시가 현재 이전인 Threads 콘텐츠 조회
+ */
+export async function getPendingContents(): Promise<PendingContent[]> {
+  if (!env.NOTION_CONTENT_DB_ID) return [];
+
+  try {
+    const now = new Date().toISOString();
+    const res = await notionClient.databases.query({
+      database_id: env.NOTION_CONTENT_DB_ID,
+      filter: {
+        and: [
+          { property: '채널', select: { equals: 'Threads' } },
+          { property: '상태', status: { equals: '발행대기' } },
+          { property: '발행일', date: { on_or_before: now } },
+        ],
+      },
+      sorts: [{ property: '발행일', direction: 'ascending' }],
+    });
+
+    return res.results
+      .map((page) => {
+        if (!('properties' in page)) return null;
+        const props = (page as NotionPageLike).properties ?? {};
+        type TitleProp = { title: { plain_text: string }[] };
+        const titleProp = props['이름'] as TitleProp | undefined;
+        const publishDate: string | undefined = props['발행일']?.date?.start;
+        const hookCopyArr = props['훅카피']?.rich_text ?? [];
+        const hookCopy = (hookCopyArr as { plain_text: string }[])
+          .map((t) => t.plain_text)
+          .join('');
+        if (!publishDate) return null;
+        return {
+          pageId: page.id,
+          title: titleProp?.title[0]?.plain_text ?? '',
+          publishDate,
+          hookCopy: hookCopy || undefined,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  } catch (err) {
+    logger.error('nami', '발행대기 콘텐츠 조회 실패', err);
+    return [];
+  }
+}
+
+/**
+ * Notion 페이지 블록을 순서대로 읽어 plain text 로 반환
+ */
+export async function getPageContentText(pageId: string): Promise<string> {
+  try {
+    const res = await notionClient.blocks.children.list({ block_id: pageId });
+    const lines: string[] = [];
+    for (const block of res.results) {
+      if (!('type' in block)) continue;
+      const b = block as { type: string; [key: string]: unknown };
+      const typed = b[b.type] as { rich_text?: { plain_text: string }[] } | undefined;
+      const text = (typed?.rich_text ?? []).map((t) => t.plain_text).join('');
+      if (text) lines.push(text);
+    }
+    return lines.join('\n\n');
+  } catch (err) {
+    logger.error('nami', `페이지 본문 조회 실패: ${pageId}`, err);
+    return '';
+  }
+}
+
+/**
+ * 콘텐츠 발행 완료 처리 — 상태를 발행완료로, 발행URL 기록
+ */
+export async function updateContentPublishInfo(pageId: string, publishUrl: string): Promise<void> {
+  try {
+    await notionClient.pages.update({
+      page_id: pageId,
+      properties: {
+        상태: { status: { name: '발행완료' } },
+        발행URL: { url: publishUrl },
+      },
+    });
+    logger.info('nami', `발행완료 업데이트: ${pageId}`);
+  } catch (err) {
+    logger.error('nami', `발행완료 업데이트 실패: ${pageId}`, err);
+    throw err;
+  }
+}
+
+/**
+ * 가장 최근에 Threads에 발행된 시각 조회 (3시간 간격 체크용)
+ */
+export async function getLastPublishedAt(): Promise<Date | null> {
+  if (!env.NOTION_CONTENT_DB_ID) return null;
+
+  try {
+    const res = await notionClient.databases.query({
+      database_id: env.NOTION_CONTENT_DB_ID,
+      filter: {
+        and: [
+          { property: '채널', select: { equals: 'Threads' } },
+          { property: '상태', status: { equals: '발행완료' } },
+          { property: '발행일', date: { is_not_empty: true } },
+        ],
+      },
+      sorts: [{ property: '발행일', direction: 'descending' }],
+      page_size: 1,
+    });
+
+    const first = res.results[0];
+    if (!first || !('properties' in first)) return null;
+    const publishDate = (first as NotionPageLike).properties?.['발행일']?.date?.start;
+    return publishDate ? new Date(publishDate) : null;
+  } catch (err) {
+    logger.error('nami', '최근 발행 시각 조회 실패', err);
+    return null;
+  }
+}
+
 /**
  * 발행 URL 로 콘텐츠 페이지 ID 조회
  * 댓글 수집 cron 에서 스레드 글 ↔ 콘텐츠 DB 매핑에 사용.

@@ -7,7 +7,7 @@
 | 팀 | 역할 | 문서 |
 |---|---|---|
 | 👑 [luffy](./luffy/) | 대장 — 팀 얼라인먼트 / 주간 브리핑 | [playbook](./luffy/playbook.md) |
-| 🍊 [nami](./nami/) | 콘텐츠 (Threads·Framer 블로그) | [playbook](./nami/playbook.md) · [reference-collection](./nami/reference-collection.md) |
+| 🍊 [nami](./nami/) | 콘텐츠 (Threads·Framer 블로그) | [playbook](./nami/playbook.md) · [reference-collection](./nami/reference-collection.md) · [content-production](./nami/content-production.md) |
 | ⚔️ [zoro](./zoro/) | 리드 수집 · 콜드 아웃리치 | [playbook](./zoro/playbook.md) |
 | 🎯 [usopp](./usopp/) | DOM 분석 · Automation API 확장 | [playbook](./usopp/playbook.md) |
 | 🍳 [sanji](./sanji/) | 시장·경쟁사·레퍼런스 재료 공급 | [playbook](./sanji/playbook.md) |
