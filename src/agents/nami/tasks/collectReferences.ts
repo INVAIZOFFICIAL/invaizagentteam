@@ -454,7 +454,12 @@ export async function collectReferencesOnce(targetHandle?: string): Promise<{
   saved: number;
 }> {
   const browser = await chromium.launch({ headless: true });
-  const cutoff = Date.now() - MAX_POST_AGE_HOURS * 3_600_000;
+  // 수동 지정 계정은 필터 완화 (시간 제한 7일, engagement 최소 1)
+  const isManual = !!targetHandle;
+  const cutoff = isManual
+    ? Date.now() - 7 * 24 * 3_600_000
+    : Date.now() - MAX_POST_AGE_HOURS * 3_600_000;
+  const minEngagement = isManual ? 1 : MIN_TOTAL_ENGAGEMENT;
   const batch: Array<{ acc: ThreadsSeedAccount; post: RawThreadsPost }> = [];
 
   // 특정 계정만 수집 시 임시 계정 객체 생성
@@ -477,7 +482,7 @@ export async function collectReferencesOnce(targetHandle?: string): Promise<{
           if (!p.timestamp) continue;
           const ts = Date.parse(p.timestamp);
           if (isNaN(ts) || ts < cutoff) continue;
-          if (p.likes + p.replies + p.reposts < MIN_TOTAL_ENGAGEMENT) continue;
+          if (p.likes + p.replies + p.reposts < minEngagement) continue;
           batch.push({ acc, post: p });
         }
         logger.info('nami', `수집: ${acc.handle} — ${posts.length}건 중 ${batch.filter(b => b.acc.handle === acc.handle).length}건 통과`);
