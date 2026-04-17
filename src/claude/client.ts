@@ -30,7 +30,7 @@ export async function runClaude(
     ];
 
     const child = spawn('claude', args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });
 
