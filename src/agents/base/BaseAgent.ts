@@ -36,8 +36,11 @@ export abstract class BaseAgent {
 
       await thinkingMsg.delete().catch(() => null);
 
-      // executeTask 내부에서 이미 응답한 경우 중복 전송 생략
-      if (result.alreadyReplied) return;
+      // executeTask 내부에서 이미 응답한 경우 중복 전송 생략 (메모리는 항상 업데이트)
+      if (result.alreadyReplied) {
+        this.memory.add('assistant', result.summary);
+        return;
+      }
 
       const responseText = result.success
         ? `${result.summary}${result.notionPageUrl ? `\n\n📝 노션에 저장했어요: ${result.notionPageUrl}` : ''}`

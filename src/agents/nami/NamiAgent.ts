@@ -14,74 +14,47 @@ export class NamiAgent extends BaseAgent {
   readonly personality: AgentPersonality = NAMI_PERSONALITY;
 
   // 메시지 내용 분석 → 태스크 종류 파악
+  // 원칙: 명확한 실행 동사 없이 키워드만 있으면 → ask_claude (자연 대화)
   protected async parseTask(content: string): Promise<ParsedTask> {
     const lower = content.toLowerCase();
 
-    // 레퍼런스 수집 요청 — 스레드 초안 체크보다 먼저 (우선순위)
-    if (lower.includes('레퍼런스') && (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져') || lower.includes('맡'))) {
-      return {
-        agentName: 'nami',
-        action: 'collect_references',
-        params: {},
-        rawMessage: content,
-      };
+    // 실행 의도 동사 패턴
+    const actionVerbs = /해줘|해달라|해봐|해줘요|부탁|시작|맡겨|진행|실행|돌려|돌려줘/;
+
+    // 레퍼런스 수집 — "레퍼런스" + "수집/모아/찾아/가져" + 실행 동사
+    if (
+      lower.includes('레퍼런스') &&
+      (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져')) &&
+      actionVerbs.test(lower)
+    ) {
+      return { agentName: 'nami', action: 'collect_references', params: {}, rawMessage: content };
     }
 
-    // 스레드 초안 생성 요청
+    // 스레드 초안 생성 — 명확한 생성 요청
     if (
-      lower.includes('초안') ||
-      (lower.includes('스레드') && !lower.includes('성과') && !lower.includes('레퍼런스')) ||
-      lower.includes('threads') ||
+      (lower.includes('초안') && actionVerbs.test(lower)) ||
+      lower.includes('초안 만들어') ||
+      lower.includes('초안 써') ||
+      lower.includes('초안 생성') ||
       lower.includes('포스트 만들어') ||
       lower.includes('포스트 생성')
     ) {
-      return {
-        agentName: 'nami',
-        action: 'generate_threads_post',
-        params: {},
-        rawMessage: content,
-      };
+      return { agentName: 'nami', action: 'generate_threads_post', params: {}, rawMessage: content };
     }
 
-    // 경쟁사 크롤링 요청 감지
-    if (lower.includes('경쟁사') || lower.includes('크롤') || lower.includes('벤치')) {
-      // URL 추출 시도
+    // 경쟁사 크롤링 — URL 있을 때만
+    if ((lower.includes('경쟁사') || lower.includes('크롤') || lower.includes('벤치')) && content.includes('http')) {
       const urlMatch = content.match(/https?:\/\/[^\s]+/);
-      return {
-        agentName: 'nami',
-        action: 'crawl_competitor',
-        params: { url: urlMatch?.[0] ?? '' },
-        rawMessage: content,
-      };
+      return { agentName: 'nami', action: 'crawl_competitor', params: { url: urlMatch?.[0] ?? '' }, rawMessage: content };
     }
 
-    // Qoo10 콘텐츠 생성 요청
-    if (lower.includes('qoo10') || lower.includes('큐텐') || lower.includes('상품') || lower.includes('콘텐츠')) {
-      return {
-        agentName: 'nami',
-        action: 'generate_content',
-        params: {},
-        rawMessage: content,
-      };
+    // 성과 확인 — 명확한 조회 요청
+    if ((lower.includes('성과') || lower.includes('지표') || lower.includes('ctr')) && actionVerbs.test(lower)) {
+      return { agentName: 'nami', action: 'analyze_performance', params: {}, rawMessage: content };
     }
 
-    // 성과 분석 요청
-    if (lower.includes('성과') || lower.includes('분석') || lower.includes('ctr') || lower.includes('전환')) {
-      return {
-        agentName: 'nami',
-        action: 'analyze_performance',
-        params: {},
-        rawMessage: content,
-      };
-    }
-
-    // 기본: Claude에게 판단 위임
-    return {
-      agentName: 'nami',
-      action: 'ask_claude',
-      params: {},
-      rawMessage: content,
-    };
+    // 나머지 전부 → 자연 대화 (Claude가 맥락 보고 판단)
+    return { agentName: 'nami', action: 'ask_claude', params: {}, rawMessage: content };
   }
 
   protected async executeTask(task: ParsedTask, message: Message): Promise<TaskResult> {
