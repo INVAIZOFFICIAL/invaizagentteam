@@ -143,7 +143,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
   }
 
   const textChannel = channel as TextChannel;
-  await textChannel.send('🍊 초안 작성 중... 레퍼런스 분석하고 있어. 잠깐만.');
+  await textChannel.send('🍊 초안 작성 중이에요. 레퍼런스 분석하고 있어요. 잠깐만요.');
 
   try {
     const refs = await queryRecentReferences(yesterdayString());
@@ -151,7 +151,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
 
     if (sorted.length === 0) {
       await textChannel.send(
-        '🍊 레퍼런스가 없어. 오늘 수집된 게 없으니 초안 생성 보류.',
+        '🍊 레퍼런스가 없어요. 오늘 수집된 게 없어서 초안 생성 보류할게요.',
       );
       return;
     }
@@ -200,7 +200,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error('nami', '초안 생성 실패', err);
     await textChannel.send(
-      `🍊 초안 생성 실패했어. 다시 트리거해줘.\n\`${msg.slice(0, 200)}\``,
+      `🍊 초안 생성 실패했어요. 다시 요청해주세요.\n\`${msg.slice(0, 200)}\``,
     );
   }
 }
@@ -230,7 +230,7 @@ export async function handleDraftRequest(message: Message): Promise<boolean> {
   draftRequestSessions.set(channelId, { channelId, createdAt: new Date() });
   await channel.send(
     [
-      `🍊 잠깐, 퀄리티 올리려면 먼저 체크할 게 있어.`,
+      `🍊 잠깐요, 퀄리티 올리려면 먼저 체크할 게 있어요.`,
       ``,
       `1. **이번에 다루고 싶은 주제나 각도** 있어? (없으면 "없음")`,
       `2. **사용할 이미지나 영상** 있어?`,

@@ -66,7 +66,7 @@ export async function deliverMorningReport(result: CurationResult): Promise<void
 
   if (top10.length === 0) {
     await (channel as TextChannel).send(
-      `🍊 **오늘의 레퍼런스** — ${date}\n\n어제~오늘 수집된 레퍼런스가 없어. 오늘은 재료가 부족해. 기다려줘.`,
+      `🍊 **오늘의 레퍼런스** — ${date}\n\n어제~오늘 수집된 레퍼런스가 없어요. 오늘은 재료가 부족해요.`,
     );
     return;
   }

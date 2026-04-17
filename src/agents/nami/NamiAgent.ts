@@ -1,5 +1,6 @@
 import type { Message, TextChannel } from 'discord.js';
 import { BaseAgent } from '@/agents/base/BaseAgent.js';
+import { env } from '@/config/env.js';
 import { saveToKnowledgeBase } from '@/notion/databases/knowledgeDb.js';
 import { logger } from '@/utils/logger.js';
 import { NAMI_PERSONALITY } from './nami.personality.js';
@@ -183,8 +184,10 @@ export class NamiAgent extends BaseAgent {
         try {
           const { collectReferencesOnce } = await import('./tasks/collectReferences.js');
           const result = await collectReferencesOnce();
+          const dbId = env.NOTION_KNOWLEDGE_DB_ID?.replace(/-/g, '');
+          const dbLink = dbId ? `\n📎 https://www.notion.so/${dbId}` : '';
           await channel.send(
-            `🍊 레퍼런스 수집 완료했어요.\n새로 저장: **${result.saved}건** / 전체 처리: ${result.attempted}건`,
+            `🍊 레퍼런스 수집 완료했어요.\n새로 저장: **${result.saved}건** / 전체 처리: ${result.attempted}건${dbLink}`,
           );
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

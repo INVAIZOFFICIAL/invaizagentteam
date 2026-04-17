@@ -96,13 +96,13 @@ export async function handleContentApproval(message: Message): Promise<boolean> 
     if (SELECT_A.test(text)) {
       session.active = 'A';
       session.currentDraft = session.draftA;
-      await channel.send('🍊 초안 A로 진행. 수정 요청하거나 `OK 발행일시` 알려줘.');
+      await channel.send('🍊 초안 A로 진행할게요. 수정 요청하거나 `OK 발행일시` 알려주세요.');
       return true;
     }
     if (SELECT_B.test(text)) {
       session.active = 'B';
       session.currentDraft = session.draftB;
-      await channel.send('🍊 초안 B로 진행. 수정 요청하거나 `OK 발행일시` 알려줘.');
+      await channel.send('🍊 초안 B로 진행할게요. 수정 요청하거나 `OK 발행일시` 알려주세요.');
       return true;
     }
   }
@@ -114,7 +114,7 @@ export async function handleContentApproval(message: Message): Promise<boolean> 
 
     if (!publishDatetime) {
       await channel.send(
-        '🍊 발행 예정일시가 없어. 예) `OK 내일 오전 10시`',
+        '🍊 발행 예정일시가 없어요. 예) `OK 내일 오전 10시`',
       );
       return true;
     }
@@ -134,11 +134,11 @@ export async function handleContentApproval(message: Message): Promise<boolean> 
 
       const urlLine = notionUrl ? `\n📎 ${notionUrl}` : '';
       await channel.send(
-        `🍊 노션 저장 완료. 발행 예정: **${publishDatetime}**\n숫자가 말해주잖아 — 이 각도 잘 될 거야.${urlLine}`,
+        `🍊 노션 저장 완료했어요. 발행 예정: **${publishDatetime}**\n숫자가 말해주잖아요 — 이 각도 잘 될 거예요.${urlLine}`,
       );
     } catch (err) {
       logger.error('nami', '노션 저장 실패', err);
-      await channel.send('🍊 노션 저장 실패했어. 다시 시도해줘.');
+      await channel.send('🍊 노션 저장 실패했어요. 다시 시도해주세요.');
     }
     return true;
   }
@@ -146,11 +146,11 @@ export async function handleContentApproval(message: Message): Promise<boolean> 
   // 수정 요청 / 아이데이션
   const currentContent = session.currentDraft?.content ?? session.draftA.content;
 
-  await channel.send('🍊 수정안 만드는 중...');
+  await channel.send('🍊 수정안 만드는 중이에요...');
   const result = await generateRevision(text, currentContent);
 
   if (!result) {
-    await channel.send('🍊 수정안 생성 실패. 다시 요청해줘.');
+    await channel.send('🍊 수정안 생성 실패했어요. 다시 요청해주세요.');
     return true;
   }
 
@@ -170,7 +170,7 @@ export async function handleContentApproval(message: Message): Promise<boolean> 
     `**수정안:**`,
     `> ${quoted}`,
     ``,
-    `OK 발행일시 or 추가 수정 알려줘.`,
+    `OK 발행일시 or 추가 수정 알려주세요.`,
   ].join('\n');
 
   for (const chunk of splitMessage(msg, 1900)) {
