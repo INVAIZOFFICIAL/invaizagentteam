@@ -32,6 +32,16 @@ export class NamiAgent extends BaseAgent {
       };
     }
 
+    // 레퍼런스 수집 요청
+    if (lower.includes('레퍼런스') && (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져'))) {
+      return {
+        agentName: 'nami',
+        action: 'collect_references',
+        params: {},
+        rawMessage: content,
+      };
+    }
+
     // 경쟁사 크롤링 요청 감지
     if (lower.includes('경쟁사') || lower.includes('크롤') || lower.includes('벤치')) {
       // URL 추출 시도
@@ -165,6 +175,28 @@ export class NamiAgent extends BaseAgent {
             executedAt: new Date(),
           };
         }
+      }
+
+      case 'collect_references': {
+        const channel = message.channel as TextChannel;
+        await channel.send('🍊 레퍼런스 수집 시작할게요. 잠깐만요.');
+        try {
+          const { collectReferencesOnce } = await import('./tasks/collectReferences.js');
+          const result = await collectReferencesOnce();
+          await channel.send(
+            `🍊 레퍼런스 수집 완료했어요.\n새로 저장: **${result.saved}건** / 전체 처리: ${result.attempted}건`,
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await channel.send(`🍊 레퍼런스 수집 실패했어요.\n\`${msg.slice(0, 200)}\``);
+        }
+        return {
+          success: true,
+          agentName: 'nami',
+          taskType: 'collect_references',
+          summary: '레퍼런스 수집 완료',
+          executedAt: new Date(),
+        };
       }
 
       case 'generate_threads_post': {
