@@ -198,6 +198,7 @@ export class NamiAgent extends BaseAgent {
           agentName: 'nami',
           taskType: 'collect_references',
           summary: '레퍼런스 수집 완료',
+          alreadyReplied: true,
           executedAt: new Date(),
         };
       }
@@ -210,6 +211,7 @@ export class NamiAgent extends BaseAgent {
           agentName: 'nami',
           taskType: 'generate_threads_post',
           summary: '초안 요청 처리 완료',
+          alreadyReplied: true,
           executedAt: new Date(),
         };
       }
@@ -227,6 +229,7 @@ export class NamiAgent extends BaseAgent {
               agentName: 'nami',
               taskType: 'generate_threads_post',
               summary: '초안 생성 완료',
+              alreadyReplied: true,
               executedAt: new Date(),
             };
           }
@@ -242,6 +245,7 @@ export class NamiAgent extends BaseAgent {
               agentName: 'nami',
               taskType: 'content_approval',
               summary: '검수 처리 완료',
+              alreadyReplied: true,
               executedAt: new Date(),
             };
           }

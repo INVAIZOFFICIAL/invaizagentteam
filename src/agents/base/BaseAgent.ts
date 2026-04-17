@@ -34,12 +34,16 @@ export abstract class BaseAgent {
       const task = await this.parseTask(message.content);
       const result = await this.executeTask(task, message);
 
+      await thinkingMsg.delete().catch(() => null);
+
+      // executeTask 내부에서 이미 응답한 경우 중복 전송 생략
+      if (result.alreadyReplied) return;
+
       const responseText = result.success
-        ? `${result.summary}${result.notionPageUrl ? `\n\n📝 노션에 저장했어: ${result.notionPageUrl}` : ''}`
-        : `${this.personality.catchphrase}... 이런, 문제가 생겼어.\n${result.error}`;
+        ? `${result.summary}${result.notionPageUrl ? `\n\n📝 노션에 저장했어요: ${result.notionPageUrl}` : ''}`
+        : `문제가 생겼어요.\n${result.error}`;
 
       this.memory.add('assistant', responseText);
-      await thinkingMsg.delete().catch(() => null);
       await this.replyToDiscord(channel, responseText);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -74,7 +78,7 @@ export abstract class BaseAgent {
   private async getThinkingMessage(): Promise<string> {
     const messages: Record<AgentName, string> = {
       luffy:   '오케이! 지금 생각 중이야!',
-      nami:    '잠깐, 숫자 좀 확인해볼게...',
+      nami:    '잠깐만요, 확인해볼게요...',
       zoro:    '...확인 중.',
       usopp:   '오... 분석 중이야! 잠깐만!',
       sanji:   '정보 요리하는 중이야, 잠시만~',

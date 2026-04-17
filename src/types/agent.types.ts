@@ -17,6 +17,8 @@ export interface TaskResult {
   notionPageUrl?: string;
   error?: string;
   executedAt: Date;
+  // true면 executeTask 내부에서 Discord 응답 완료 → handleMessage 중복 전송 생략
+  alreadyReplied?: boolean;
 }
 
 export interface ContentDraft {
