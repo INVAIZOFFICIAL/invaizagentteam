@@ -168,20 +168,36 @@ export class NamiAgent extends BaseAgent {
       }
 
       case 'generate_threads_post': {
-        const { generateThreadsPost } = await import('./tasks/generateThreadsPost.js');
-        await generateThreadsPost();
+        const { handleDraftRequest } = await import('./tasks/generateThreadsPost.js');
+        await handleDraftRequest(message);
         return {
           success: true,
           agentName: 'nami',
           taskType: 'generate_threads_post',
-          summary: '스레드 초안 2건 생성 완료',
+          summary: '초안 요청 처리 완료',
           executedAt: new Date(),
         };
       }
 
       default: {
+        const { draftSessions, draftRequestSessions } = await import('./tasks/generateThreadsPost.js');
+
+        // 수동 초안 요청 Q&A 세션이 있으면 답변 처리 → 생성 실행
+        if (draftRequestSessions.has(message.channelId)) {
+          const { handleDraftRequest } = await import('./tasks/generateThreadsPost.js');
+          const handled = await handleDraftRequest(message);
+          if (handled) {
+            return {
+              success: true,
+              agentName: 'nami',
+              taskType: 'generate_threads_post',
+              summary: '초안 생성 완료',
+              executedAt: new Date(),
+            };
+          }
+        }
+
         // 활성 검수 세션이 있으면 approval 루프 우선 처리
-        const { draftSessions } = await import('./tasks/generateThreadsPost.js');
         if (draftSessions.has(message.channelId)) {
           const { handleContentApproval } = await import('./tasks/submitForApproval.js');
           const handled = await handleContentApproval(message);

@@ -6,7 +6,7 @@
 // 검수 세션 (draftSessions) 은 이 파일에서 관리.
 // submitForApproval.ts 가 여기서 export 한 세션 맵을 직접 수정.
 
-import type { TextChannel } from 'discord.js';
+import type { Message, TextChannel } from 'discord.js';
 import { discordClient } from '@/discord/bot.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
@@ -36,6 +36,13 @@ export interface DraftSession {
 // channelId → 활성 검수 세션 (채널당 1개)
 export const draftSessions = new Map<string, DraftSession>();
 
+// channelId → 수동 초안 요청 Q&A 세션
+export interface DraftRequestSession {
+  channelId: string;
+  createdAt: Date;
+}
+export const draftRequestSessions = new Map<string, DraftRequestSession>();
+
 function yesterdayString(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -45,6 +52,7 @@ function yesterdayString(): string {
 function buildGenerationPrompt(
   references: { title: string; summary: string; hooking: string }[],
   existingTitles: string[],
+  userContext?: string,
 ): string {
   const refExamples = references
     .slice(0, 5)
@@ -58,6 +66,10 @@ function buildGenerationPrompt(
     existingTitles.length > 0
       ? `\n\n최근 발행 주제 (중복 각도 피하기):\n${existingTitles.map((t) => `- ${t}`).join('\n')}`
       : '';
+
+  const userContextNote = userContext
+    ? `\n\n[담당자 요청사항]\n${userContext}\n위 요청사항을 반드시 반영해.`
+    : '';
 
   return `[레퍼런스 문체 예시]
 ${refExamples}${existingNote}
@@ -75,7 +87,7 @@ ${refExamples}${existingNote}
 - 역직구 셀러의 실제 고통·상황을 구체적으로 짚어.
 - 소프트셀. DayZero 직접 언급 없어도 됨. 가치 제공 우선.
 - 각 포스트 250자 이내.
-- A와 B는 서로 다른 후킹 유형으로.
+- A와 B는 서로 다른 후킹 유형으로.${userContextNote}
 
 [출력 형식] JSON만 출력. 다른 텍스트 없음.
 {
@@ -92,11 +104,18 @@ ${refExamples}${existingNote}
 }`;
 }
 
-function formatDraftMessage(pair: { draftA: Draft; draftB: Draft }): string {
+function formatDraftMessage(
+  pair: { draftA: Draft; draftB: Draft },
+  refTitles: string[],
+): string {
   const quoteA = pair.draftA.content.replace(/\n/g, '\n> ');
   const quoteB = pair.draftB.content.replace(/\n/g, '\n> ');
+  const refLine =
+    refTitles.length > 0
+      ? `\n📚 **토대 레퍼런스:** ${refTitles.slice(0, 3).join(' / ')}`
+      : '';
   return [
-    `📝 **오늘 초안 2건**`,
+    `📝 **오늘 초안 2건**${refLine}`,
     ``,
     `**[초안 A]** ${pair.draftA.hookCopy}`,
     `> ${quoteA}`,
@@ -110,7 +129,7 @@ function formatDraftMessage(pair: { draftA: Draft; draftB: Draft }): string {
   ].join('\n');
 }
 
-export async function generateThreadsPost(): Promise<void> {
+export async function generateThreadsPost(userContext?: string): Promise<void> {
   const channel = await discordClient.channels
     .fetch(env.DISCORD_CHANNEL_NAMI)
     .catch((err) => {
@@ -138,7 +157,11 @@ export async function generateThreadsPost(): Promise<void> {
     }
 
     const existing = await getPublishedThreadsContents(7).catch(() => []);
-    const prompt = buildGenerationPrompt(sorted, existing.map((p) => p.title));
+    const prompt = buildGenerationPrompt(
+      sorted,
+      existing.map((p) => p.title),
+      userContext,
+    );
 
     const rawResponse = await runClaude(prompt, 'nami', {
       systemPrompt: NAMI_PERSONALITY.systemPrompt,
@@ -154,8 +177,9 @@ export async function generateThreadsPost(): Promise<void> {
       throw new Error('초안 형식 오류 — draftA/draftB content 없음');
     }
 
+    const refTitles = sorted.slice(0, 3).map((r) => r.title);
     const sentMessages: import('discord.js').Message[] = [];
-    for (const chunk of splitMessage(formatDraftMessage(pair), 1900)) {
+    for (const chunk of splitMessage(formatDraftMessage(pair, refTitles), 1900)) {
       const sent = await textChannel.send(chunk);
       sentMessages.push(sent);
     }
@@ -179,4 +203,41 @@ export async function generateThreadsPost(): Promise<void> {
       `🍊 초안 생성 실패했어. 다시 트리거해줘.\n\`${msg.slice(0, 200)}\``,
     );
   }
+}
+
+/**
+ * 수동 요청 시 질문 → 답변 받은 뒤 generateThreadsPost(userContext) 호출.
+ * @returns 처리됐으면 true
+ */
+export async function handleDraftRequest(message: Message): Promise<boolean> {
+  const channelId = message.channelId;
+  const channel = message.channel as TextChannel;
+
+  // 이미 Q&A 세션이 있으면 → 이번 메시지가 답변 → 생성 실행
+  const session = draftRequestSessions.get(channelId);
+  if (session) {
+    // 1시간 만료
+    if (Date.now() - session.createdAt.getTime() > 3_600_000) {
+      draftRequestSessions.delete(channelId);
+    } else {
+      draftRequestSessions.delete(channelId);
+      await generateThreadsPost(message.content.trim());
+      return true;
+    }
+  }
+
+  // 새 요청 → 질문 전송 후 세션 저장
+  draftRequestSessions.set(channelId, { channelId, createdAt: new Date() });
+  await channel.send(
+    [
+      `🍊 잠깐, 퀄리티 올리려면 먼저 체크할 게 있어.`,
+      ``,
+      `1. **이번에 다루고 싶은 주제나 각도** 있어? (없으면 "없음")`,
+      `2. **사용할 이미지나 영상** 있어?`,
+      `3. **참고하고 싶은 레퍼런스** URL 있으면 줘도 돼.`,
+      ``,
+      `다 답하면 바로 만들어줄게.`,
+    ].join('\n'),
+  );
+  return true;
 }
