@@ -231,14 +231,14 @@ async function loginToThreads(browser: Browser): Promise<void> {
     await page.goto('https://www.threads.com/login/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
     // 사용자명 입력
-    await page.waitForSelector('input[name="username"], input[autocomplete="username"]', { timeout: 15_000 });
-    await page.fill('input[name="username"], input[autocomplete="username"]', username);
+    await page.waitForSelector('input[autocomplete="username"]', { timeout: 15_000 });
+    await page.fill('input[autocomplete="username"]', username);
 
     // 비밀번호 입력
-    await page.fill('input[name="password"], input[type="password"]', password);
+    await page.fill('input[autocomplete="current-password"]', password);
 
-    // 로그인 버튼 클릭
-    await page.click('button[type="submit"]');
+    // 로그인 제출 — Threads는 <input type="submit"> 사용
+    await page.click('input[type="submit"]');
 
     // 로그인 성공 확인 — 피드 또는 프로필 URL로 이동될 때까지 대기
     await page.waitForURL((url) => !url.toString().includes('/login/'), { timeout: 30_000 });
