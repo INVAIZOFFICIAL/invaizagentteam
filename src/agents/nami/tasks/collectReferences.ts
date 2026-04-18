@@ -9,11 +9,14 @@
 //   - robots.txt: ClaudeBot·Scrapy 등 명시 봇만 차단, 일반 Chrome UA 는 Googlebot/기본허용 그룹에 속하지 않지만
 //     실제 브라우저 트래픽과 구별 불가. 내부 리서치 용도 소량·저속으로 한정.
 
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type BrowserContext } from 'playwright';
+import * as fs from 'fs';
+import * as path from 'path';
 import { runClaude } from '@/claude/client.js';
 import { saveToKnowledgeBase } from '@/notion/databases/knowledgeDb.js';
 import { THREADS_SEED_ACCOUNTS, type ThreadsSeedAccount } from '@/agents/nami/seedAccounts.js';
 import { logger } from '@/utils/logger.js';
+import { env } from '@/config/env.js';
 
 const CHROME_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -193,6 +196,73 @@ export interface PostClassification {
 }
 
 // ─────────────────────────────────────────────────────────
+// Threads 로그인 & 세션 관리
+// ─────────────────────────────────────────────────────────
+
+const SESSION_PATH = path.resolve(process.cwd(), '.threads-session.json');
+// 세션 파일 최대 수명 (12시간 — 그 이상 지나면 재로그인)
+const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function isSessionFresh(): boolean {
+  try {
+    const stat = fs.statSync(SESSION_PATH);
+    return Date.now() - stat.mtimeMs < SESSION_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+async function loginToThreads(browser: Browser): Promise<void> {
+  const username = env.THREADS_USERNAME;
+  const password = env.THREADS_PASSWORD;
+  if (!username || !password) {
+    throw new Error('THREADS_USERNAME / THREADS_PASSWORD 환경변수 미설정');
+  }
+
+  logger.info('nami', 'Threads 로그인 시작');
+  const context = await browser.newContext({
+    userAgent: CHROME_UA,
+    locale: 'ko-KR',
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('https://www.threads.com/login/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+
+    // 사용자명 입력
+    await page.waitForSelector('input[name="username"], input[autocomplete="username"]', { timeout: 15_000 });
+    await page.fill('input[name="username"], input[autocomplete="username"]', username);
+
+    // 비밀번호 입력
+    await page.fill('input[name="password"], input[type="password"]', password);
+
+    // 로그인 버튼 클릭
+    await page.click('button[type="submit"]');
+
+    // 로그인 성공 확인 — 피드 또는 프로필 URL로 이동될 때까지 대기
+    await page.waitForURL((url) => !url.toString().includes('/login/'), { timeout: 30_000 });
+
+    await context.storageState({ path: SESSION_PATH });
+    logger.info('nami', `Threads 로그인 성공 — 세션 저장: ${SESSION_PATH}`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function getLoggedInContext(browser: Browser): Promise<BrowserContext> {
+  if (!isSessionFresh()) {
+    await loginToThreads(browser);
+  }
+  return browser.newContext({
+    storageState: SESSION_PATH,
+    userAgent: CHROME_UA,
+    locale: 'ko-KR',
+    viewport: { width: 1280, height: 900 },
+  });
+}
+
+// ─────────────────────────────────────────────────────────
 // Playwright 프로필 스크래퍼
 // ─────────────────────────────────────────────────────────
 
@@ -200,11 +270,7 @@ async function fetchProfilePosts(
   browser: Browser,
   acc: ThreadsSeedAccount,
 ): Promise<RawThreadsPost[]> {
-  const context = await browser.newContext({
-    userAgent: CHROME_UA,
-    locale: 'ko-KR',
-    viewport: { width: 1280, height: 900 },
-  });
+  const context = await getLoggedInContext(browser);
   const page = await context.newPage();
   try {
     const response = await page.goto(acc.url, {
@@ -304,11 +370,7 @@ async function fetchSelfReplies(
   permalink: string,
   authorHandle: string,
 ): Promise<string[]> {
-  const context = await browser.newContext({
-    userAgent: CHROME_UA,
-    locale: 'ko-KR',
-    viewport: { width: 1280, height: 900 },
-  });
+  const context = await getLoggedInContext(browser);
   const page = await context.newPage();
   try {
     const response = await page.goto(permalink, {

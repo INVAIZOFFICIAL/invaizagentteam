@@ -51,6 +51,8 @@ const envSchema = z.object({
   THREADS_APP_SECRET: z.string().optional(),
   THREADS_ACCESS_TOKEN: z.string().optional(),
   THREADS_USER_ID: z.string().optional(),
+  THREADS_USERNAME: z.string().optional(),
+  THREADS_PASSWORD: z.string().optional(),
 
   // SendGrid
   SENDGRID_API_KEY: z.string().optional(),
