@@ -57,8 +57,8 @@ export async function runClaude(
         logger.debug(agentName, 'Claude 실행 완료', { outputLength: output.length });
         resolve(output.trim());
       } else {
-        logger.error(agentName, 'Claude 실행 실패', { code, errorOutput });
-        reject(new Error(`Claude 프로세스 종료 코드: ${code}\n${errorOutput}`));
+        logger.error(agentName, 'Claude 실행 실패', { code, output: output.slice(0, 300), errorOutput });
+        reject(new Error(`Claude 프로세스 종료 코드: ${code}\n${output.slice(0, 300)}\n${errorOutput}`));
       }
     });
 
