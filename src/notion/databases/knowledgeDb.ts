@@ -191,7 +191,7 @@ export async function queryRecentReferences(
         const p = page as NotionPageLike;
         if (!p.properties) continue;
 
-        const titleArr = p.properties['제목']?.title ?? [];
+        const titleArr = (p.properties['이름'] ?? p.properties['제목'])?.title ?? [];
         const title = titleArr.map((t: { plain_text?: string }) => t.plain_text ?? '').join('');
         const contentArr = p.properties['콘텐츠']?.rich_text ?? [];
         const summary = contentArr.map((t: { plain_text?: string }) => t.plain_text ?? '').join('');
