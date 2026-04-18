@@ -85,7 +85,7 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
 
   try {
     const properties: NotionPropertyBag = {
-      이름: { title: [{ text: { content: entry.title } }] },
+      제목: { title: [{ text: { content: entry.title } }] },
       카테고리: { select: { name: entry.category } },
       수집자: { select: { name: entry.collector } },
       상태: { select: { name: entry.status ?? 'Raw' } },
@@ -120,9 +120,7 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
         })),
       };
     }
-    if (entry.summary) {
-      properties['한줄요약'] = { rich_text: [{ text: { content: entry.summary } }] };
-    }
+    // 한줄요약은 콘텐츠 필드(contentText)에 포함되므로 별도 저장 생략
     if (entry.sourceUrl) {
       properties['원본URL'] = { url: entry.sourceUrl };
     }
@@ -191,7 +189,7 @@ export async function queryRecentReferences(
         const p = page as NotionPageLike;
         if (!p.properties) continue;
 
-        const titleArr = (p.properties['이름'] ?? p.properties['제목'])?.title ?? [];
+        const titleArr = p.properties['제목']?.title ?? [];
         const title = titleArr.map((t: { plain_text?: string }) => t.plain_text ?? '').join('');
         const contentArr = p.properties['콘텐츠']?.rich_text ?? [];
         const summary = contentArr.map((t: { plain_text?: string }) => t.plain_text ?? '').join('');

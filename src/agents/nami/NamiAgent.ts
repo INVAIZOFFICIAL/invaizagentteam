@@ -171,9 +171,20 @@ export class NamiAgent extends BaseAgent {
           const result = await collectReferencesOnce(targetHandle);
           const dbId = env.NOTION_KNOWLEDGE_DB_ID?.replace(/-/g, '');
           const dbLink = dbId ? `\n📎 https://www.notion.so/${dbId}` : '';
-          await channel.send(
-            `🍊 레퍼런스 수집 완료했어요 (${targetLabel}).\n새로 저장: **${result.saved}건** / 전체 처리: ${result.attempted}건${dbLink}`,
-          );
+
+          if (result.collected === 0) {
+            await channel.send(
+              `🍊 (${targetLabel}) 포스트를 가져오지 못했어요.\n크롤링 실패 가능성 — 로그 확인 필요. (방문계정: ${result.attempted}개)`,
+            );
+          } else if (result.saved === 0) {
+            await channel.send(
+              `🍊 (${targetLabel}) 포스트 ${result.collected}건 찾았는데 노션 저장에 실패했어요.\n로그 확인 필요.${dbLink}`,
+            );
+          } else {
+            await channel.send(
+              `🍊 레퍼런스 수집 완료 (${targetLabel}).\n저장: **${result.saved}건** / 수집: ${result.collected}건 / 방문: ${result.attempted}개${dbLink}`,
+            );
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           await channel.send(`🍊 레퍼런스 수집 실패했어요.\n\`${msg.slice(0, 200)}\``);
