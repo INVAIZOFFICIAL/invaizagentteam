@@ -237,8 +237,8 @@ async function loginToThreads(browser: Browser): Promise<void> {
     // 비밀번호 입력
     await page.fill('input[autocomplete="current-password"]', password);
 
-    // 로그인 제출 — Threads는 <input type="submit"> 사용
-    await page.click('input[type="submit"]');
+    // React 리렌더링으로 submit 버튼이 DOM에서 잠시 detach되는 문제 회피 — Enter 키로 제출
+    await page.press('input[autocomplete="current-password"]', 'Enter');
 
     // 로그인 성공 확인 — 피드 또는 프로필 URL로 이동될 때까지 대기
     await page.waitForURL((url) => !url.toString().includes('/login/'), { timeout: 30_000 });
