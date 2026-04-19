@@ -29,7 +29,9 @@ export async function runClaude(
       fullPrompt,
     ];
 
-    const child = spawn('claude', args, {
+    // 풀 경로 사용 — LaunchAgent/cron 환경에서 PATH가 달라 'claude'만으로는 못 찾는 문제 방지
+    const claudePath = process.env.CLAUDE_PATH ?? '/Users/sonjuwan/.local/bin/claude';
+    const child = spawn(claudePath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });

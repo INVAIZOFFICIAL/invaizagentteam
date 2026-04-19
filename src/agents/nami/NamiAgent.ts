@@ -21,14 +21,27 @@ export class NamiAgent extends BaseAgent {
     // 실행 의도 동사 패턴
     const actionVerbs = /해줘|해달라|해봐|해줘요|부탁|시작|맡겨|진행|실행|돌려|돌려줘/;
 
-    // 특정 계정 수집 — "@handle 수집해줘" 패턴
-    const handleMatch = content.match(/@([\w.]+)/);
+    // 특정 계정 수집 — "@handle 수집해줘" 또는 "handle 수집해줘" 패턴
+    const handleMatch =
+      content.match(/@([\w.]+)/) ??
+      ((lower.includes('수집') || lower.includes('크롤') || lower.includes('레퍼런스'))
+        ? content.match(/\b([a-zA-Z][\w.]{2,})\b/)
+        : null);
     if (
       handleMatch &&
       (lower.includes('수집') || lower.includes('크롤') || lower.includes('가져') || lower.includes('레퍼런스')) &&
       actionVerbs.test(lower)
     ) {
       return { agentName: 'nami', action: 'collect_references', params: { handle: handleMatch[1] }, rawMessage: content };
+    }
+
+    // 피드/트렌딩 수집 — "피드", "트렌딩", "잘되는", "인기", "핫한" + 실행 동사
+    if (
+      (lower.includes('피드') || lower.includes('트렌딩') || lower.includes('잘되는') ||
+       lower.includes('인기') || lower.includes('핫한') || lower.includes('뜨는')) &&
+      (lower.includes('수집') || lower.includes('찾아') || lower.includes('가져') || actionVerbs.test(lower))
+    ) {
+      return { agentName: 'nami', action: 'collect_feed', params: {}, rawMessage: content };
     }
 
     // 레퍼런스 수집 — "레퍼런스" + "수집/모아/찾아/가져" + 실행 동사
@@ -159,6 +172,32 @@ export class NamiAgent extends BaseAgent {
             executedAt: new Date(),
           };
         }
+      }
+
+      case 'collect_feed': {
+        await channel.send('🍊 지금 뜨는 콘텐츠 수집 시작할게요. 홈 피드 스크롤 중이에요. 잠깐만요.');
+        try {
+          const { collectFeedOnce } = await import('./tasks/collectReferences.js');
+          const result = await collectFeedOnce();
+          const dbId = env.NOTION_KNOWLEDGE_DB_ID?.replace(/-/g, '');
+          const dbLink = dbId ? `\n📎 https://www.notion.so/${dbId}` : '';
+          if (result.saved === 0) {
+            await channel.send(`🍊 피드에서 저장할 콘텐츠가 없었어요. (수집: ${result.collected}건)${dbLink}`);
+          } else {
+            await channel.send(`🍊 피드 수집 완료. 저장: **${result.saved}건** / 수집: ${result.collected}건${dbLink}`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await channel.send(`🍊 피드 수집 실패했어요.\n\`${msg.slice(0, 200)}\``);
+        }
+        return {
+          success: true,
+          agentName: 'nami',
+          taskType: 'collect_feed',
+          summary: '피드 수집 완료',
+          alreadyReplied: true,
+          executedAt: new Date(),
+        };
       }
 
       case 'collect_references': {

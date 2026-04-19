@@ -21,6 +21,7 @@
     "test:discord": "tsx scripts/test-agents.ts --discord",
     "test:notion": "tsx scripts/test-agents.ts --notion",
     "setup:notion": "tsx scripts/setup-notion.ts",
+    "setup:threads": "tsx scripts/setup-threads-session.ts",
     "cron:list": "tsx scripts/cron-list.ts"
   },
   "dependencies": {

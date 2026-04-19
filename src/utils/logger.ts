@@ -18,6 +18,7 @@ try {
 function formatData(data: unknown): string {
   if (data === undefined) return '';
   if (typeof data === 'string') return ' ' + data;
+  if (data instanceof Error) return ` ${data.name}: ${data.message}${data.stack ? '\n' + data.stack.split('\n').slice(1, 3).join('\n') : ''}`;
   try {
     return ' ' + JSON.stringify(data);
   } catch {

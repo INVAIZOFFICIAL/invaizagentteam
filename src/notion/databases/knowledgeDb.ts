@@ -48,7 +48,7 @@ export type KnowledgeCategory =
 export type KnowledgeReliability = '1차자료' | '2차자료' | '소문추정';
 
 // 지식 베이스 DB 의 `상태` Select 값
-export type KnowledgeStatus = 'Raw' | '검증됨' | '활용됨' | '보관';
+export type KnowledgeStatus = 'Inbox' | 'Raw' | '검증됨' | '활용됨' | '보관';
 
 export interface KnowledgeEntry {
   title: string;
@@ -66,6 +66,7 @@ export interface KnowledgeEntry {
   sourceUrl?: string; // 원본URL
   tags?: string[]; // 태그 (멀티 셀렉트)
   collectedAt?: string; // 수집일 (ISO date)
+  publishedAt?: string; // 발행일 (ISO datetime — 포스트 원문 발행 시각)
   reliability?: KnowledgeReliability;
   status?: KnowledgeStatus; // 기본 'Raw'
 }
@@ -135,6 +136,9 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
       properties['수집일'] = {
         date: { start: todayDateOnly() },
       };
+    }
+    if (entry.publishedAt) {
+      properties['발행일'] = { date: { start: entry.publishedAt } };
     }
     if (entry.reliability) {
       properties['신뢰도'] = { select: { name: entry.reliability } };
