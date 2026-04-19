@@ -515,7 +515,7 @@ export async function collectReferencesOnce(targetHandle?: string): Promise<{
   collected: number;
   saved: number;
 }> {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
   // 수동 지정 계정은 필터 완화 (시간 제한 7일, engagement 최소 1)
   const isManual = !!targetHandle;
   const cutoff = isManual
@@ -562,7 +562,7 @@ export async function collectReferencesOnce(targetHandle?: string): Promise<{
 
   // self-reply 수집 — permalink당 추가 방문이 필요하므로 브라우저 재사용
   const selfRepliesMap = new Map<string, string[]>();
-  const replyBrowser = await chromium.launch({ headless: true });
+  const replyBrowser = await chromium.launch({ headless: false });
   try {
     for (const { acc, post } of batch) {
       try {
