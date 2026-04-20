@@ -14,7 +14,7 @@ export { registerPublishContentJob } from '@/cron/jobs/publishContent.js';
 interface JobDefinition {
   name: string;
   schedule: string;
-  fn: () => Promise<void>;
+  fn: () => Promise<unknown>;
 }
 
 const locks = new Map<string, boolean>();

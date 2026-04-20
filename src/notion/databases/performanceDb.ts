@@ -84,3 +84,63 @@ export async function milestoneExists(
     return false;
   }
 }
+
+/**
+ * 주간 리포트용 — 지정 콘텐츠 ID 목록의 최근 N일 성과 스냅샷 일괄 조회
+ */
+export async function getRecentPerformanceSnapshots(
+  contentPageIds: string[],
+  sinceDays: number,
+): Promise<Array<{
+  contentPageId: string;
+  daysElapsed: number;
+  views: number;
+  likes: number;
+  replies: number;
+  reposts: number;
+  engagementRate: number;
+}>> {
+  if (!env.NOTION_PERFORMANCE_DB_ID || contentPageIds.length === 0) return [];
+
+  const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0];
+
+  try {
+    const res = await notionClient.databases.query({
+      database_id: env.NOTION_PERFORMANCE_DB_ID,
+      filter: {
+        and: [
+          { property: '측정일', date: { on_or_after: since } },
+        ],
+      },
+      page_size: 100,
+    });
+
+    type NumProp = { number: number | null };
+    type RelProp = { relation: { id: string }[] };
+
+    const snapshots = res.results
+      .map((page) => {
+        const p = (page as { properties: Record<string, unknown> }).properties as Record<string, unknown>;
+        const contentRel = (p['콘텐츠'] as RelProp | undefined)?.relation ?? [];
+        const contentPageId = contentRel[0]?.id ?? '';
+        if (!contentPageIds.includes(contentPageId)) return null;
+        return {
+          contentPageId,
+          daysElapsed: (p['발행후경과일'] as NumProp | undefined)?.number ?? 0,
+          views: (p['조회수'] as NumProp | undefined)?.number ?? 0,
+          likes: (p['좋아요'] as NumProp | undefined)?.number ?? 0,
+          replies: (p['댓글수'] as NumProp | undefined)?.number ?? 0,
+          reposts: (p['리포스트'] as NumProp | undefined)?.number ?? 0,
+          engagementRate: (p['참여율'] as NumProp | undefined)?.number ?? 0,
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+
+    return snapshots;
+  } catch (err) {
+    logger.error('performanceDb', '주간 성과 조회 실패', err);
+    return [];
+  }
+}

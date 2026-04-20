@@ -45,6 +45,7 @@ const envSchema = z.object({
   NOTION_RESEARCH_DB_ID: z.string().optional(),
   NOTION_DOM_SPEC_DB_ID: z.string().optional(),
   NOTION_APPLICANT_DB_ID: z.string().optional(),
+  NOTION_WEEKLY_REPORT_DB_ID: z.string().optional(),
 
   // Threads
   THREADS_APP_ID: z.string().optional(),

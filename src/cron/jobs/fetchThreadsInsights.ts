@@ -24,18 +24,22 @@ const FETCH_WINDOW_DAYS = 5;
  *
  * cron 과 디스코드 수동 트리거 모두 이 함수를 호출.
  */
-export async function fetchThreadsInsightsOnce(): Promise<void> {
+export async function fetchThreadsInsightsOnce(): Promise<{
+  totalNew: number;
+  result: string;
+  skipReason?: string;
+}> {
   const startedAt = new Date();
   logger.info('nami', '스레드 성과 수집 시작');
 
   const jobState = await getJobState(JOB_NAME);
   if (!jobState) {
     logger.error('nami', `시스템 메타 DB 에 "${JOB_NAME}" row 없음 — 수집 중단`);
-    return;
+    return { totalNew: 0, result: '실패', skipReason: `시스템 메타 DB에 "${JOB_NAME}" row 없음` };
   }
   if (!jobState.isActive) {
     logger.info('nami', `"${JOB_NAME}" 비활성 상태 — 스킵`);
-    return;
+    return { totalNew: 0, result: '스킵', skipReason: '비활성화 상태' };
   }
 
   let totalNew = 0;
@@ -135,6 +139,8 @@ export async function fetchThreadsInsightsOnce(): Promise<void> {
     lastError: errorMsg,
     incrementTotalCount: totalNew,
   });
+
+  return { totalNew, result, skipReason: errorMsg || undefined };
 }
 
 /**

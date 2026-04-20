@@ -102,3 +102,60 @@ export async function getExistingCommentIds(): Promise<Set<string>> {
 
   return ids;
 }
+
+/**
+ * 주간 리포트용 — 지정 콘텐츠 ID 목록의 최근 N일 댓글 일괄 조회
+ */
+export async function getRecentCommentsByContent(
+  contentPageIds: string[],
+  sinceDays: number,
+): Promise<Array<{
+  contentPageId: string;
+  username: string;
+  text: string;
+  timestamp: string;
+}>> {
+  if (!env.NOTION_COMMENT_DB_ID || contentPageIds.length === 0) return [];
+
+  const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const res = await notionClient.databases.query({
+      database_id: env.NOTION_COMMENT_DB_ID,
+      filter: {
+        property: '작성시각',
+        date: { on_or_after: since },
+      },
+      page_size: 200,
+    });
+
+    type TitleProp = { title: { plain_text: string }[] };
+    type RichProp = { rich_text: { plain_text: string }[] };
+    type DateProp = { date: { start: string } | null };
+    type RelProp = { relation: { id: string }[] };
+
+    const comments = res.results
+      .map((page) => {
+        const p = (page as { properties: Record<string, unknown> }).properties as Record<string, unknown>;
+        const contentRel = (p['콘텐츠'] as RelProp | undefined)?.relation ?? [];
+        const contentPageId = contentRel[0]?.id ?? '';
+        if (!contentPageIds.includes(contentPageId)) return null;
+
+        const usernameArr = (p['작성자'] as RichProp | undefined)?.rich_text ?? [];
+        const username = usernameArr.map((t) => t.plain_text).join('');
+
+        const textArr = (p['본문'] as RichProp | undefined)?.rich_text ?? [];
+        const text = textArr.map((t) => t.plain_text).join('');
+
+        const timestamp = (p['작성시각'] as DateProp | undefined)?.date?.start ?? '';
+
+        return { contentPageId, username, text, timestamp };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null && c.text.length > 0);
+
+    return comments;
+  } catch (err) {
+    logger.error('commentDb', '주간 댓글 조회 실패', err);
+    return [];
+  }
+}

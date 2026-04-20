@@ -22,18 +22,18 @@ const FETCH_WINDOW_DAYS = 30;
  *
  * cron 과 디스코드 수동 트리거 모두 이 함수를 호출.
  */
-export async function fetchThreadsCommentsOnce(): Promise<void> {
+export async function fetchThreadsCommentsOnce(): Promise<{ totalNew: number; result: string; skipReason?: string }> {
   const startedAt = new Date();
   logger.info('nami', '스레드 댓글 수집 시작');
 
   const jobState = await getJobState(JOB_NAME);
   if (!jobState) {
     logger.error('nami', `시스템 메타 DB 에 "${JOB_NAME}" row 없음 — 수집 중단`);
-    return;
+    return { totalNew: 0, result: '실패', skipReason: `시스템 메타 DB에 "${JOB_NAME}" row 없음` };
   }
   if (!jobState.isActive) {
     logger.info('nami', `"${JOB_NAME}" 비활성화 상태 — 스킵`);
-    return;
+    return { totalNew: 0, result: '스킵', skipReason: '비활성화 상태' };
   }
 
   // 증분 기준 since: 마지막 실행 시각. 없으면 30 일 전.
@@ -123,6 +123,8 @@ export async function fetchThreadsCommentsOnce(): Promise<void> {
     lastError: errorMsg,
     incrementTotalCount: totalNew,
   });
+
+  return { totalNew, result, skipReason: errorMsg || undefined };
 }
 
 /**

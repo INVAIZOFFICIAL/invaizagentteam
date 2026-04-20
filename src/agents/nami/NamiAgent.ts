@@ -71,6 +71,34 @@ export class NamiAgent extends BaseAgent {
       return { agentName: 'nami', action: 'crawl_competitor', params: { url: urlMatch?.[0] ?? '' }, rawMessage: content };
     }
 
+    // 주간 리포트 — 명확한 리포트 요청
+    if (
+      lower.includes('주간리포트') ||
+      lower.includes('주간 리포트') ||
+      lower.includes('성과리포트') ||
+      lower.includes('성과 리포트') ||
+      (lower.includes('리포트') && (lower.includes('써줘') || lower.includes('만들어') || lower.includes('생성') || lower.includes('작성') || actionVerbs.test(lower)))
+    ) {
+      return { agentName: 'nami', action: 'weekly_report', params: {}, rawMessage: content };
+    }
+
+    // 댓글 수집 — 명확한 수집 요청
+    if (
+      (lower.includes('댓글') || lower.includes('리플') || lower.includes('reply') || lower.includes('replies')) &&
+      (lower.includes('수집') || lower.includes('가져') || lower.includes('모아') || actionVerbs.test(lower))
+    ) {
+      return { agentName: 'nami', action: 'fetch_comments', params: {}, rawMessage: content };
+    }
+
+    // 성과/인사이트 수집 — 명확한 수집 요청 (analyze_performance 와 구분: "수집"/"가져" 동사 필요)
+    if (
+      (lower.includes('인사이트') || lower.includes('지표 수집') || lower.includes('성과 수집') ||
+       (lower.includes('지표') && (lower.includes('수집') || lower.includes('가져')))) &&
+      (lower.includes('수집') || lower.includes('가져') || actionVerbs.test(lower))
+    ) {
+      return { agentName: 'nami', action: 'fetch_insights', params: {}, rawMessage: content };
+    }
+
     // 성과 확인 — 명확한 조회 요청
     if ((lower.includes('성과') || lower.includes('지표') || lower.includes('ctr')) && actionVerbs.test(lower)) {
       return { agentName: 'nami', action: 'analyze_performance', params: {}, rawMessage: content };
@@ -244,6 +272,77 @@ export class NamiAgent extends BaseAgent {
           agentName: 'nami',
           taskType: 'generate_threads_post',
           summary: '초안 요청 처리 완료',
+          alreadyReplied: true,
+          executedAt: new Date(),
+        };
+      }
+
+      case 'weekly_report': {
+        await channel.send('🍊 주간 성과 리포트 작성 시작할게요. 데이터 모으고 분석하는 데 1~2분 걸릴 수 있어요. 잠깐만요.');
+        try {
+          const { generateWeeklyReport } = await import('@/agents/nami/tasks/generateWeeklyReport.js');
+          await generateWeeklyReport();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await channel.send(`🍊 주간 리포트 생성 실패했어요.\n\`${msg.slice(0, 200)}\``);
+        }
+        return {
+          success: true,
+          agentName: 'nami',
+          taskType: 'weekly_report',
+          summary: '주간 리포트 완료',
+          alreadyReplied: true,
+          executedAt: new Date(),
+        };
+      }
+
+      case 'fetch_comments': {
+        await channel.send('🍊 Threads 댓글 수집 시작할게요. 잠깐만요.');
+        try {
+          const { fetchThreadsCommentsOnce } = await import('@/cron/jobs/fetchThreadsComments.js');
+          const res = await fetchThreadsCommentsOnce();
+          if (res.skipReason) {
+            await channel.send(`🍊 댓글 수집 스킵: ${res.skipReason}`);
+          } else if (res.result === '실패') {
+            await channel.send(`🍊 댓글 수집 실패했어요. (${res.skipReason ?? res.result})`);
+          } else {
+            await channel.send(`🍊 댓글 수집 완료. 신규 **${res.totalNew}건** 저장했어요. (${res.result})`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await channel.send(`🍊 댓글 수집 실패했어요.\n\`${msg.slice(0, 200)}\``);
+        }
+        return {
+          success: true,
+          agentName: 'nami',
+          taskType: 'fetch_comments',
+          summary: '댓글 수집 완료',
+          alreadyReplied: true,
+          executedAt: new Date(),
+        };
+      }
+
+      case 'fetch_insights': {
+        await channel.send('🍊 Threads 성과 지표 수집 시작할게요. 잠깐만요.');
+        try {
+          const { fetchThreadsInsightsOnce } = await import('@/cron/jobs/fetchThreadsInsights.js');
+          const res = await fetchThreadsInsightsOnce();
+          if (res.skipReason) {
+            await channel.send(`🍊 성과 수집 스킵: ${res.skipReason}`);
+          } else if (res.result === '실패') {
+            await channel.send(`🍊 성과 수집 실패했어요. (${res.skipReason ?? '알 수 없는 오류'})`);
+          } else {
+            await channel.send(`🍊 성과 수집 완료. 신규 스냅샷 **${res.totalNew}건** 저장했어요. (${res.result})`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await channel.send(`🍊 성과 수집 실패했어요.\n\`${msg.slice(0, 200)}\``);
+        }
+        return {
+          success: true,
+          agentName: 'nami',
+          taskType: 'fetch_insights',
+          summary: '성과 수집 완료',
           alreadyReplied: true,
           executedAt: new Date(),
         };

@@ -2,6 +2,9 @@ import { startDiscordBot } from '@/discord/bot.js';
 import { registerAgent } from '@/discord/handlers/messageHandler.js';
 import { NamiAgent } from '@/agents/nami/NamiAgent.js';
 import { registerNamiReferenceJobs } from '@/cron/jobs/namiReferences.js';
+import { registerFetchThreadsCommentsJob } from '@/cron/jobs/fetchThreadsComments.js';
+import { registerFetchThreadsInsightsJob } from '@/cron/jobs/fetchThreadsInsights.js';
+import { registerWeeklyReportJob } from '@/cron/jobs/weeklyReport.js';
 import { logger } from '@/utils/logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -58,6 +61,9 @@ async function main(): Promise<void> {
 
   // cron 작업 등록 (production 환경에서만 실제 실행됨)
   registerNamiReferenceJobs();
+  registerFetchThreadsCommentsJob();
+  registerFetchThreadsInsightsJob();
+  registerWeeklyReportJob();
 
   // Discord 봇 시작
   await startDiscordBot();
