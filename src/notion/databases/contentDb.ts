@@ -53,8 +53,8 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
       상태: { status: { name: entry.status } },
     };
 
-    if (entry.hookCopy) {
-      properties['콘텐츠'] = { rich_text: [{ text: { content: entry.hookCopy } }] };
+    if (entry.content) {
+      properties['콘텐츠'] = { rich_text: [{ text: { content: entry.content.slice(0, 2000) } }] };
     }
     if (entry.publishDate) {
       properties['발행일'] = { date: { start: entry.publishDate } };
