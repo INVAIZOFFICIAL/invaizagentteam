@@ -35,7 +35,7 @@ export interface ContentDbEntry {
   publishDate?: string; // 발행일 (ISO date 또는 datetime)
   publishUrl?: string; // 발행 URL
   hookCopy?: string; // 훅카피 (검토 시 빠른 훑기용)
-  referenceTitle?: string; // 토대가 된 레퍼런스 제목 (참조자료)
+  referencePageIds?: string[]; // 토대가 된 레퍼런스 Notion 페이지 ID (참조자료 관계형)
   mediaUrl?: string; // 이미지 또는 영상 URL (Threads 발행 시 첨부)
 }
 
@@ -69,8 +69,10 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
     if (entry.hookCopy) {
       properties['훅카피'] = { rich_text: [{ text: { content: entry.hookCopy } }] };
     }
-    if (entry.referenceTitle) {
-      properties['참조자료'] = { rich_text: [{ text: { content: entry.referenceTitle } }] };
+    if (entry.referencePageIds && entry.referencePageIds.length > 0) {
+      properties['참조자료'] = {
+        relation: entry.referencePageIds.map((id) => ({ id })),
+      };
     }
 
     const page = await notionClient.pages.create({

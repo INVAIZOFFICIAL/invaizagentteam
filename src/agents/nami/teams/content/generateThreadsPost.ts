@@ -21,7 +21,8 @@ export interface Draft {
   title: string;
   content: string;
   hookCopy: string;
-  refTitle?: string; // 토대가 된 레퍼런스 제목
+  refTitle?: string;   // 토대가 된 레퍼런스 제목 (Discord 표시용)
+  refPageId?: string;  // 토대가 된 레퍼런스 Notion 페이지 ID (관계형 연결용)
 }
 
 export interface DraftSession {
@@ -58,7 +59,7 @@ function yesterdayString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-type Ref = { title: string; summary: string; hooking: string };
+type Ref = { pageId: string; title: string; summary: string; hooking: string };
 
 // hooking 유형이 다른 2개 우선 선별 → 다양성 확보
 function pickTwoRefs(refs: Ref[]): [Ref, Ref] {
@@ -211,7 +212,9 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
     }
 
     pair.draftA.refTitle = refA.title;
+    pair.draftA.refPageId = refA.pageId;
     pair.draftB.refTitle = refB.title;
+    pair.draftB.refPageId = refB.pageId;
 
     // 초안 2건 Notion에 `초안` 상태로 즉시 저장
     const [notionUrlA, notionUrlB] = await Promise.all([
@@ -222,7 +225,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
         status: '초안',
         agentName: 'nami',
         hookCopy: pair.draftA.hookCopy,
-        referenceTitle: pair.draftA.refTitle,
+        referencePageIds: pair.draftA.refPageId ? [pair.draftA.refPageId] : undefined,
       }),
       saveContentToNotion({
         title: pair.draftB.title,
@@ -231,7 +234,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
         status: '초안',
         agentName: 'nami',
         hookCopy: pair.draftB.hookCopy,
-        referenceTitle: pair.draftB.refTitle,
+        referencePageIds: pair.draftB.refPageId ? [pair.draftB.refPageId] : undefined,
       }),
     ]);
 
