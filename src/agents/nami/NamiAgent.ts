@@ -143,7 +143,7 @@ export class NamiAgent extends BaseAgent {
             success: false,
             agentName: 'nami',
             taskType: 'crawl_competitor',
-            summary: '숫자가 말해주잖아 — URL이 없으면 분석 못 해.',
+            summary: '숫자가 말해주잖아요 — URL이 없으면 분석 못 해요.',
             error: 'URL이 제공되지 않음',
             executedAt: new Date(),
           };
