@@ -13,6 +13,30 @@ export class NamiAgent extends BaseAgent {
   readonly displayName = '나미';
   readonly personality: AgentPersonality = NAMI_PERSONALITY;
 
+  // 확인 메시지 전송 후 ✅/❌ 리액션 대기 (30초 타임아웃 → 취소)
+  private async awaitConfirmation(channel: TextChannel, text: string): Promise<boolean> {
+    const msg = await channel.send(text);
+    await msg.react('✅');
+    await msg.react('❌');
+    try {
+      const collected = await msg.awaitReactions({
+        filter: (r, u) => ['✅', '❌'].includes(r.emoji.name ?? '') && !u.bot,
+        max: 1,
+        time: 30_000,
+        errors: ['time'],
+      });
+      const emoji = collected.first()?.emoji.name;
+      if (emoji !== '✅') {
+        await channel.send('🍊 취소할게요.');
+        return false;
+      }
+      return true;
+    } catch {
+      await channel.send('🍊 30초 안에 응답이 없어서 취소할게요.');
+      return false;
+    }
+  }
+
   // 메시지 내용 분석 → 태스크 종류 파악
   // 원칙: 명확한 실행 동사 없이 키워드만 있으면 → ask_claude (자연 대화)
   protected async parseTask(content: string): Promise<ParsedTask> {
@@ -201,7 +225,12 @@ export class NamiAgent extends BaseAgent {
       }
 
       case 'collect_feed': {
-        await channel.send('🍊 지금 뜨는 콘텐츠 수집 시작할게요. 홈 피드 스크롤 중이에요. 잠깐만요.');
+        const feedConfirmed = await this.awaitConfirmation(
+          channel,
+          '🍊 피드 수집할까요? 홈 피드 스크롤해서 트렌딩 콘텐츠 가져올게요. (약 5~10분 소요)\n✅ 수락 / ❌ 취소',
+        );
+        if (!feedConfirmed) return { success: true, agentName: 'nami', taskType: 'collect_feed', summary: '취소', alreadyReplied: true, executedAt: new Date() };
+        await channel.send('🍊 피드 수집 시작할게요. 홈 피드 스크롤 중이에요. 잠깐만요.');
         try {
           const { collectFeedOnce } = await import('./teams/research/collectReferences.js');
           const result = await collectFeedOnce();
@@ -230,6 +259,11 @@ export class NamiAgent extends BaseAgent {
         const channel = message.channel as TextChannel;
         const targetHandle = task.params.handle as string | undefined;
         const targetLabel = targetHandle ? `@${targetHandle}` : '전체 시드 계정';
+        const refConfirmed = await this.awaitConfirmation(
+          channel,
+          `🍊 레퍼런스 수집할까요? (${targetLabel}) 시드 계정 전체 순회라 **10~15분** 소요돼요.\n✅ 수락 / ❌ 취소`,
+        );
+        if (!refConfirmed) return { success: true, agentName: 'nami', taskType: 'collect_references', summary: '취소', alreadyReplied: true, executedAt: new Date() };
         await channel.send(`🍊 레퍼런스 수집 시작할게요 (${targetLabel}). 잠깐만요.`);
         try {
           const { collectReferencesOnce } = await import('./teams/research/collectReferences.js');
