@@ -189,8 +189,8 @@ export interface PendingContent {
   pageId: string;
   title: string;
   publishDate: string; // ISO datetime
-  hookCopy?: string;
-  mediaUrl?: string; // 이미지/영상 URL
+  content?: string;    // 콘텐츠 속성값 (발행 본문)
+  mediaUrl?: string;   // 이미지/영상 URL
 }
 
 /**
@@ -220,8 +220,8 @@ export async function getPendingContents(): Promise<PendingContent[]> {
         type TitleProp = { title: { plain_text: string }[] };
         const titleProp = props['재목'] as TitleProp | undefined;
         const publishDate: string | undefined = props['발행일']?.date?.start;
-        const hookCopyArr = props['콘텐츠']?.rich_text ?? [];
-        const hookCopy = (hookCopyArr as { plain_text: string }[])
+        const contentArr = props['콘텐츠']?.rich_text ?? [];
+        const content = (contentArr as { plain_text: string }[])
           .map((t) => t.plain_text)
           .join('');
         const imageFiles: { file?: { url: string }; external?: { url: string } }[] =
@@ -233,7 +233,7 @@ export async function getPendingContents(): Promise<PendingContent[]> {
           pageId: page.id,
           title: titleProp?.title[0]?.plain_text ?? '',
           publishDate,
-          hookCopy: hookCopy || undefined,
+          content: content || undefined,
           mediaUrl,
         };
       })
@@ -262,6 +262,24 @@ export async function getPageContentText(pageId: string): Promise<string> {
   } catch (err) {
     logger.error('nami', `페이지 본문 조회 실패: ${pageId}`, err);
     return '';
+  }
+}
+
+/**
+ * 콘텐츠 속성 본문 업데이트 — 수정안 확정 시 사용
+ */
+export async function updateContentBody(pageId: string, content: string): Promise<void> {
+  try {
+    await notionClient.pages.update({
+      page_id: pageId,
+      properties: {
+        콘텐츠: { rich_text: [{ text: { content: content.slice(0, 2000) } }] },
+      },
+    });
+    logger.info('nami', `콘텐츠 본문 업데이트: ${pageId}`);
+  } catch (err) {
+    logger.error('nami', `콘텐츠 본문 업데이트 실패: ${pageId}`, err);
+    throw err;
   }
 }
 

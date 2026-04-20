@@ -9,7 +9,6 @@ import { logger } from '@/utils/logger.js';
 import { publishTextPost } from '@/threads/client.js';
 import {
   getPendingContents,
-  getPageContentText,
   updateContentPublishInfo,
   getLastPublishedAt,
 } from '@/notion/databases/contentDb.js';
@@ -76,9 +75,9 @@ export async function publishPendingThreads(): Promise<void> {
       }
     }
 
-    const content = await getPageContentText(item.pageId);
+    const content = item.content;
     if (!content) {
-      logger.warn('nami', `본문 없음 — 스킵: ${item.title}`);
+      logger.warn('nami', `콘텐츠 속성 비어있음 — 스킵: ${item.title}`);
       continue;
     }
 
