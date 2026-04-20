@@ -48,13 +48,14 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
 
   try {
     const properties: NotionPropertyBag = {
-      이름: { title: [{ text: { content: entry.title } }] },
+      재목: { title: [{ text: { content: entry.title } }] },
       채널: { select: { name: entry.channel } },
-      // `상태` 는 Notion Status 타입 (select 아님) — Status 필드는 `status: { name }` 포맷
       상태: { status: { name: entry.status } },
-
     };
 
+    if (entry.hookCopy) {
+      properties['콘텐츠'] = { rich_text: [{ text: { content: entry.hookCopy } }] };
+    }
     if (entry.publishDate) {
       properties['발행일'] = { date: { start: entry.publishDate } };
     }
@@ -65,9 +66,6 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
       properties['이미지'] = {
         files: [{ name: '미디어', type: 'external', external: { url: entry.mediaUrl } }],
       };
-    }
-    if (entry.hookCopy) {
-      properties['훅카피'] = { rich_text: [{ text: { content: entry.hookCopy } }] };
     }
     if (entry.referencePageIds && entry.referencePageIds.length > 0) {
       properties['참조자료'] = {
@@ -111,7 +109,7 @@ export async function getRecentContents(limit = 10): Promise<
         const props = page.properties as Record<string, unknown>;
         type TitleProp = { title: { plain_text: string }[] };
         type SelectProp = { select: { name: string } | null };
-        const titleProp = props['이름'] as TitleProp | undefined;
+        const titleProp = props['재목'] as TitleProp | undefined;
         const channelProp = props['채널'] as SelectProp | undefined;
         const statusProp = props['상태'] as SelectProp | undefined;
 
@@ -169,7 +167,7 @@ export async function getPublishedThreadsContents(
         if (!('properties' in page)) return null;
         const props = (page as NotionPageLike).properties ?? {};
         type TitleProp = { title: { plain_text: string }[] };
-        const titleProp = props['이름'] as TitleProp | undefined;
+        const titleProp = props['재목'] as TitleProp | undefined;
         const publishDate: string | undefined = props['발행일']?.date?.start;
         const publishUrl: string | undefined = props['발행URL']?.url;
         if (!publishDate || !publishUrl) return null;
@@ -220,9 +218,9 @@ export async function getPendingContents(): Promise<PendingContent[]> {
         if (!('properties' in page)) return null;
         const props = (page as NotionPageLike).properties ?? {};
         type TitleProp = { title: { plain_text: string }[] };
-        const titleProp = props['이름'] as TitleProp | undefined;
+        const titleProp = props['재목'] as TitleProp | undefined;
         const publishDate: string | undefined = props['발행일']?.date?.start;
-        const hookCopyArr = props['훅카피']?.rich_text ?? [];
+        const hookCopyArr = props['콘텐츠']?.rich_text ?? [];
         const hookCopy = (hookCopyArr as { plain_text: string }[])
           .map((t) => t.plain_text)
           .join('');
