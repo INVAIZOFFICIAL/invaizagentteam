@@ -11,10 +11,9 @@ export interface PerformanceSnapshot {
   views: number;
   likes: number;
   replies: number;
-  reposts: number;
-  quotes: number;
+  reposts: number; // 리포스트 + 인용 합산
   shares: number;
-  engagementRate: number; // (likes+replies+reposts+quotes)/views, 0~1 범위
+  engagementRate: number; // (likes+replies+reposts)/views, 0~1 범위
   collectionMethod: 'API자동' | '수동';
 }
 
@@ -37,9 +36,8 @@ export async function savePerformanceSnapshot(
       발행후경과일: { number: snap.daysElapsed },
       조회수: { number: snap.views },
       좋아요: { number: snap.likes },
-      댓글수: { number: snap.replies },
+      댓글: { number: snap.replies },
       리포스트: { number: snap.reposts },
-      인용: { number: snap.quotes },
       공유: { number: snap.shares },
       참여율: { number: snap.engagementRate },
       수집방법: { select: { name: snap.collectionMethod } },
@@ -97,7 +95,7 @@ export async function getRecentPerformanceSnapshots(
   views: number;
   likes: number;
   replies: number;
-  reposts: number;
+  reposts: number; // 리포스트 + 인용 합산
   engagementRate: number;
 }>> {
   if (!env.NOTION_PERFORMANCE_DB_ID || contentPageIds.length === 0) return [];
@@ -131,7 +129,7 @@ export async function getRecentPerformanceSnapshots(
           daysElapsed: (p['발행후경과일'] as NumProp | undefined)?.number ?? 0,
           views: (p['조회수'] as NumProp | undefined)?.number ?? 0,
           likes: (p['좋아요'] as NumProp | undefined)?.number ?? 0,
-          replies: (p['댓글수'] as NumProp | undefined)?.number ?? 0,
+          replies: (p['댓글'] as NumProp | undefined)?.number ?? 0,
           reposts: (p['리포스트'] as NumProp | undefined)?.number ?? 0,
           engagementRate: (p['참여율'] as NumProp | undefined)?.number ?? 0,
         };

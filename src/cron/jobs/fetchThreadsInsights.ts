@@ -92,10 +92,10 @@ export async function fetchThreadsInsightsOnce(): Promise<{
           }
         }
 
+        const mergedReposts = insights.reposts + insights.quotes;
         const engagementRate =
           insights.views > 0
-            ? (insights.likes + insights.replies + insights.reposts + insights.quotes) /
-              insights.views
+            ? (insights.likes + insights.replies + mergedReposts) / insights.views
             : 0;
 
         const postPreview = (post.text ?? '').replace(/\n/g, ' ').slice(0, 30);
@@ -109,9 +109,8 @@ export async function fetchThreadsInsightsOnce(): Promise<{
           views: insights.views,
           likes: insights.likes,
           replies: insights.replies,
-          reposts: insights.reposts,
-          quotes: insights.quotes,
-          shares: 0, // Threads API 미제공
+          reposts: mergedReposts,
+          shares: 0,
           engagementRate,
           collectionMethod: 'API자동',
         });
