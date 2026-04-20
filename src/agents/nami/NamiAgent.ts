@@ -18,23 +18,16 @@ export class NamiAgent extends BaseAgent {
     const msg = await channel.send(text);
     await msg.react('✅');
     await msg.react('❌');
-    try {
-      const collected = await msg.awaitReactions({
-        filter: (r, u) => ['✅', '❌'].includes(r.emoji.name ?? '') && !u.bot,
-        max: 1,
-        time: 30_000,
-        errors: ['time'],
-      });
-      const emoji = collected.first()?.emoji.name;
-      if (emoji !== '✅') {
-        await channel.send('🍊 취소할게요.');
-        return false;
-      }
-      return true;
-    } catch {
-      await channel.send('🍊 30초 안에 응답이 없어서 취소할게요.');
+    const collected = await msg.awaitReactions({
+      filter: (r, u) => ['✅', '❌'].includes(r.emoji.name ?? '') && !u.bot,
+      max: 1,
+    });
+    const emoji = collected.first()?.emoji.name;
+    if (emoji !== '✅') {
+      await channel.send('🍊 취소할게요.');
       return false;
     }
+    return true;
   }
 
   // 메시지 내용 분석 → 태스크 종류 파악
