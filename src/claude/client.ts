@@ -23,7 +23,8 @@ export async function runClaude(
 
   return new Promise((resolve, reject) => {
     const args = [
-      '--print',           // 결과를 stdout으로 출력
+      '--print',
+      '--dangerously-skip-permissions',
       '--output-format', 'text',
       '--max-turns', String(maxTurns),
       fullPrompt,
