@@ -1,9 +1,8 @@
 import { registerJob } from '@/cron/scheduler.js';
 import { CRON } from '@/cron/cronConfig.js';
-import type { NamiAgent } from '@/agents/nami/NamiAgent.js';
 import { logger } from '@/utils/logger.js';
 
-export function registerContentGenerateJob(_namiAgent: NamiAgent): void {
+export function registerContentGenerateJob(): void {
   registerJob({
     name: '나미:초안생성',
     schedule: CRON.DAILY_04,

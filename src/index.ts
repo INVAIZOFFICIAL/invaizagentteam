@@ -2,6 +2,8 @@ import { startDiscordBot } from '@/discord/bot.js';
 import { registerAgent } from '@/discord/handlers/messageHandler.js';
 import { NamiAgent } from '@/agents/nami/NamiAgent.js';
 import { registerNamiReferenceJobs } from '@/cron/jobs/namiReferences.js';
+import { registerContentGenerateJob } from '@/cron/jobs/contentGenerate.js';
+import { registerPublishContentJob } from '@/cron/jobs/publishContent.js';
 import { registerFetchThreadsCommentsJob } from '@/cron/jobs/fetchThreadsComments.js';
 import { registerFetchThreadsInsightsJob } from '@/cron/jobs/fetchThreadsInsights.js';
 import { registerWeeklyReportJob } from '@/cron/jobs/weeklyReport.js';
@@ -61,6 +63,8 @@ async function main(): Promise<void> {
 
   // cron 작업 등록 (production 환경에서만 실제 실행됨)
   registerNamiReferenceJobs();
+  registerContentGenerateJob();
+  registerPublishContentJob();
   registerFetchThreadsCommentsJob();
   registerFetchThreadsInsightsJob();
   registerWeeklyReportJob();
