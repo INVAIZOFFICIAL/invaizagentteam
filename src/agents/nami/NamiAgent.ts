@@ -35,6 +35,12 @@ export class NamiAgent extends BaseAgent {
   protected async parseTask(content: string): Promise<ParsedTask> {
     const lower = content.toLowerCase();
 
+    // 취소/부정 단어 → Claude 호출 없이 무시
+    const cancelWords = /^(취소|아니|됐어|필요없어|괜찮아|그만|stop|cancel)$/;
+    if (cancelWords.test(lower.trim())) {
+      return { agentName: 'nami', action: 'noop', params: {}, rawMessage: content };
+    }
+
     // 실행 의도 동사 패턴
     const actionVerbs = /해줘|해달라|해봐|해줘요|부탁|시작|맡겨|진행|실행|돌려|돌려줘/;
 
@@ -52,25 +58,7 @@ export class NamiAgent extends BaseAgent {
       return { agentName: 'nami', action: 'collect_references', params: { handle: handleMatch[1] }, rawMessage: content };
     }
 
-    // 피드/트렌딩 수집 — "피드", "트렌딩", "잘되는", "인기", "핫한" + 실행 동사
-    if (
-      (lower.includes('피드') || lower.includes('트렌딩') || lower.includes('잘되는') ||
-       lower.includes('인기') || lower.includes('핫한') || lower.includes('뜨는')) &&
-      (lower.includes('수집') || lower.includes('찾아') || lower.includes('가져') || actionVerbs.test(lower))
-    ) {
-      return { agentName: 'nami', action: 'collect_feed', params: {}, rawMessage: content };
-    }
-
-    // 레퍼런스 수집 — "레퍼런스" + "수집/모아/찾아/가져" + 실행 동사
-    if (
-      lower.includes('레퍼런스') &&
-      (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져')) &&
-      actionVerbs.test(lower)
-    ) {
-      return { agentName: 'nami', action: 'collect_references', params: {}, rawMessage: content };
-    }
-
-    // 스레드 초안 생성 — 명확한 생성 요청
+    // 스레드 초안 생성 — 명확한 생성 요청 (collect보다 먼저 체크)
     if (
       (lower.includes('초안') && actionVerbs.test(lower)) ||
       lower.includes('초안 만들어') ||
@@ -80,6 +68,26 @@ export class NamiAgent extends BaseAgent {
       lower.includes('포스트 생성')
     ) {
       return { agentName: 'nami', action: 'generate_threads_post', params: {}, rawMessage: content };
+    }
+
+    // 피드/트렌딩 수집 — "피드", "트렌딩", "잘되는", "인기", "핫한" + 실행 동사
+    if (
+      !lower.includes('초안') &&
+      (lower.includes('피드') || lower.includes('트렌딩') || lower.includes('잘되는') ||
+       lower.includes('인기') || lower.includes('핫한') || lower.includes('뜨는')) &&
+      (lower.includes('수집') || lower.includes('찾아') || lower.includes('가져') || actionVerbs.test(lower))
+    ) {
+      return { agentName: 'nami', action: 'collect_feed', params: {}, rawMessage: content };
+    }
+
+    // 레퍼런스 수집 — "레퍼런스" + "수집/모아/찾아/가져" + 실행 동사 (초안 요청 제외)
+    if (
+      !lower.includes('초안') &&
+      lower.includes('레퍼런스') &&
+      (lower.includes('수집') || lower.includes('모아') || lower.includes('찾아') || lower.includes('가져')) &&
+      actionVerbs.test(lower)
+    ) {
+      return { agentName: 'nami', action: 'collect_references', params: {}, rawMessage: content };
     }
 
     // 경쟁사 크롤링 — URL 있을 때만
@@ -374,6 +382,9 @@ export class NamiAgent extends BaseAgent {
           executedAt: new Date(),
         };
       }
+
+      case 'noop':
+        return { success: true, agentName: 'nami', taskType: 'noop', summary: '무시', alreadyReplied: true, executedAt: new Date() };
 
       default: {
         const { draftSessions, draftRequestSessions } = await import('./teams/content/generateThreadsPost.js');
