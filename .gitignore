@@ -8,3 +8,4 @@ logs/
 .harness/ai-results/
 .omc/
 **/.omc/
+.collaborator

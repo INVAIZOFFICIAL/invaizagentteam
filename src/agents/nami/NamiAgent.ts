@@ -4,8 +4,8 @@ import { env } from '@/config/env.js';
 import { saveToKnowledgeBase } from '@/notion/databases/knowledgeDb.js';
 import { logger } from '@/utils/logger.js';
 import { NAMI_PERSONALITY } from './nami.personality.js';
-import { crawlCompetitorProduct } from './tasks/crawlCompetitor.js';
-import { generateQoo10Content } from './tasks/generateQoo10Content.js';
+import { crawlCompetitorProduct } from './teams/research/crawlCompetitor.js';
+import { generateQoo10Content } from './teams/content/generateQoo10Content.js';
 import type { AgentName, AgentPersonality, ParsedTask, TaskResult } from '@/types/agent.types.js';
 
 export class NamiAgent extends BaseAgent {
@@ -203,7 +203,7 @@ export class NamiAgent extends BaseAgent {
       case 'collect_feed': {
         await channel.send('🍊 지금 뜨는 콘텐츠 수집 시작할게요. 홈 피드 스크롤 중이에요. 잠깐만요.');
         try {
-          const { collectFeedOnce } = await import('./tasks/collectReferences.js');
+          const { collectFeedOnce } = await import('./teams/research/collectReferences.js');
           const result = await collectFeedOnce();
           const dbId = env.NOTION_KNOWLEDGE_DB_ID?.replace(/-/g, '');
           const dbLink = dbId ? `\n📎 https://www.notion.so/${dbId}` : '';
@@ -232,7 +232,7 @@ export class NamiAgent extends BaseAgent {
         const targetLabel = targetHandle ? `@${targetHandle}` : '전체 시드 계정';
         await channel.send(`🍊 레퍼런스 수집 시작할게요 (${targetLabel}). 잠깐만요.`);
         try {
-          const { collectReferencesOnce } = await import('./tasks/collectReferences.js');
+          const { collectReferencesOnce } = await import('./teams/research/collectReferences.js');
           const result = await collectReferencesOnce(targetHandle);
           const dbId = env.NOTION_KNOWLEDGE_DB_ID?.replace(/-/g, '');
           const dbLink = dbId ? `\n📎 https://www.notion.so/${dbId}` : '';
@@ -265,7 +265,7 @@ export class NamiAgent extends BaseAgent {
       }
 
       case 'generate_threads_post': {
-        const { handleDraftRequest } = await import('./tasks/generateThreadsPost.js');
+        const { handleDraftRequest } = await import('./teams/content/generateThreadsPost.js');
         await handleDraftRequest(message);
         return {
           success: true,
@@ -280,7 +280,7 @@ export class NamiAgent extends BaseAgent {
       case 'weekly_report': {
         await channel.send('🍊 주간 성과 리포트 작성 시작할게요. 데이터 모으고 분석하는 데 1~2분 걸릴 수 있어요. 잠깐만요.');
         try {
-          const { generateWeeklyReport } = await import('@/agents/nami/tasks/generateWeeklyReport.js');
+          const { generateWeeklyReport } = await import('@/agents/nami/teams/analytics/generateWeeklyReport.js');
           await generateWeeklyReport();
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -349,11 +349,11 @@ export class NamiAgent extends BaseAgent {
       }
 
       default: {
-        const { draftSessions, draftRequestSessions } = await import('./tasks/generateThreadsPost.js');
+        const { draftSessions, draftRequestSessions } = await import('./teams/content/generateThreadsPost.js');
 
         // 수동 초안 요청 Q&A 세션이 있으면 답변 처리 → 생성 실행
         if (draftRequestSessions.has(message.channelId)) {
-          const { handleDraftRequest } = await import('./tasks/generateThreadsPost.js');
+          const { handleDraftRequest } = await import('./teams/content/generateThreadsPost.js');
           const handled = await handleDraftRequest(message);
           if (handled) {
             return {
@@ -369,7 +369,7 @@ export class NamiAgent extends BaseAgent {
 
         // 활성 검수 세션이 있으면 approval 루프 우선 처리
         if (draftSessions.has(message.channelId)) {
-          const { handleContentApproval } = await import('./tasks/submitForApproval.js');
+          const { handleContentApproval } = await import('./teams/content/submitForApproval.js');
           const handled = await handleContentApproval(message);
           if (handled) {
             return {

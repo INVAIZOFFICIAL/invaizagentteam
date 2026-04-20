@@ -7,9 +7,9 @@
 import { registerJob } from '@/cron/scheduler.js';
 import { CRON } from '@/cron/cronConfig.js';
 import { logger } from '@/utils/logger.js';
-import { collectReferencesOnce } from '@/agents/nami/tasks/collectReferences.js';
-import { curateMorningReport, type CurationResult } from '@/agents/nami/tasks/curateMorningReport.js';
-import { deliverMorningReport } from '@/agents/nami/tasks/deliverMorningReport.js';
+import { collectReferencesOnce } from '@/agents/nami/teams/research/collectReferences.js';
+import { curateMorningReport, type CurationResult } from '@/agents/nami/teams/research/curateMorningReport.js';
+import { deliverMorningReport } from '@/agents/nami/teams/research/deliverMorningReport.js';
 
 // 06:00 큐레이션 결과를 07:00 배달 때 재활용하기 위한 경량 캐시.
 // cron 사이에서 process 유지되므로 메모리 공유 가능. 실패 시 07:00 이 자체 재계산.

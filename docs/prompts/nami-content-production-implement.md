@@ -9,8 +9,8 @@
 
 1. `docs/agents/nami/content-production.md` — **확정 정의서. 모든 결정의 근거.**
 2. `docs/agents/nami/playbook.md` — 타겟·메시지·KPI·톤
-3. `src/agents/nami/tasks/collectReferences.ts` — 레퍼런스 수집 구조 파악
-4. `src/agents/nami/tasks/curateMorningReport.ts` — 큐레이션 패턴 파악
+3. `src/agents/nami/teams/research/collectReferences.ts` — 레퍼런스 수집 구조 파악
+4. `src/agents/nami/teams/research/curateMorningReport.ts` — 큐레이션 패턴 파악
 5. `src/notion/databases/contentDb.ts` — 현재 콘텐츠 DB 스키마
 6. `src/notion/databases/performanceDb.ts` — 성과 DB 스키마
 7. `src/threads/client.ts` — Threads API (읽기+쓰기 구현 상태 확인)
@@ -23,7 +23,7 @@
 
 ### 신규 생성
 
-#### 1. `src/agents/nami/tasks/generateThreadsPost.ts`
+#### 1. `src/agents/nami/teams/content/generateThreadsPost.ts`
 
 **역할**: 매일 새벽 cron 진입점. 초안 2건 생성 후 Discord 보고.
 
@@ -52,7 +52,7 @@ AI가 쓴 것처럼 보이면 안 돼.
 
 ---
 
-#### 2. `src/agents/nami/tasks/submitForApproval.ts`
+#### 2. `src/agents/nami/teams/content/submitForApproval.ts`
 
 **역할**: Discord 메시지 수신 → 나미가 아이데이션·수정 참여 → OK 시 노션 저장.
 
@@ -67,7 +67,7 @@ AI가 쓴 것처럼 보이면 안 돼.
 
 ---
 
-#### 3. `src/agents/nami/tasks/publishThread.ts`
+#### 3. `src/agents/nami/teams/content/publishThread.ts`
 
 **역할**: 발행대기 항목 중 발행예정일시 도달한 것 → Threads 자동 발행.
 

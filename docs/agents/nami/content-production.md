@@ -125,9 +125,9 @@
 
 | 파일 | 역할 |
 |---|---|
-| `src/agents/nami/tasks/generateThreadsPost.ts` | 레퍼런스+성과물 참고 초안 2건 생성 |
-| `src/agents/nami/tasks/submitForApproval.ts` | Discord 보고·수정 루프 (아이데이션 포함) |
-| `src/agents/nami/tasks/publishThread.ts` | 발행대기 항목 → Threads 자동 발행 |
+| `src/agents/nami/teams/content/generateThreadsPost.ts` | 레퍼런스+성과물 참고 초안 2건 생성 |
+| `src/agents/nami/teams/content/submitForApproval.ts` | Discord 보고·수정 루프 (아이데이션 포함) |
+| `src/agents/nami/teams/content/publishThread.ts` | 발행대기 항목 → Threads 자동 발행 |
 | `src/agents/nami/tasks/measurePerformance.ts` | 5일간 성과 수집 → 성과 DB 저장 |
 
 추가:

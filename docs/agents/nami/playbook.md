@@ -137,7 +137,7 @@ Qoo10 JP 이미 운영 중, 수동 관리로 하루 3~6시간 소진, 품절/역
 **착수 순서**
 1. [ ] seed 리스트 v0 구축 (50~100개, 나미가 외부 리서치)
 2. [ ] threads.net 공개 페이지 스크래핑 실측 (수치 노출·robots.txt·로그인 요구 여부)
-3. [ ] 스크래퍼·태거·스코어러 구현 (`src/agents/nami/tasks/collectReferences.ts`)
+3. [ ] 스크래퍼·태거·스코어러 구현 (`src/agents/nami/teams/research/collectReferences.ts`)
 4. [ ] 지식 베이스 DB 태그 필드 확인·보완
 5. [ ] cron 등록 (03:00 수집 / 06:00 큐레이션 / 07:00 배달)
 6. [ ] 3일 시범 운영 후 임계값·분량 튜닝

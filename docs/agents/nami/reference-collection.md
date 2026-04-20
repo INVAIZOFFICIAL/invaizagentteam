@@ -71,7 +71,7 @@
 | 로그인 필요 여부 | 공개 프로필만 | 로그인 벽 감지 시 해당 계정 스킵 |
 | 본문 존재 여부 | 필수 | 미디어 전용 포스트·빈 텍스트는 제외 |
 
-**편집**: [`src/agents/nami/tasks/collectReferences.ts`](../../../src/agents/nami/tasks/collectReferences.ts)
+**편집**: [`src/agents/nami/teams/research/collectReferences.ts`](../../../src/agents/nami/teams/research/collectReferences.ts)
 - `MIN_TOTAL_ENGAGEMENT` (현재 `20`)
 - `MAX_POST_AGE_HOURS` (현재 `36`)
 
@@ -153,7 +153,7 @@
 - 분류: 후킹 · 업종 · 언어
 ```
 
-**편집**: 본문 포맷은 [`src/agents/nami/tasks/collectReferences.ts`](../../../src/agents/nami/tasks/collectReferences.ts) `saveReference()`.
+**편집**: 본문 포맷은 [`src/agents/nami/teams/research/collectReferences.ts`](../../../src/agents/nami/teams/research/collectReferences.ts) `saveReference()`.
 
 ---
 
@@ -172,11 +172,11 @@
 - 나미가 실제 활용한 레퍼런스 → 상태 `활용됨` 전환 → 해당 작성자 가중치↑
 - 2주 동안 `활용됨` 0건인 시드는 자동 후순위 (※ 미구현, v1 계획)
 
-**편집**: [`src/agents/nami/tasks/curateMorningReport.ts`](../../../src/agents/nami/tasks/curateMorningReport.ts)
+**편집**: [`src/agents/nami/teams/research/curateMorningReport.ts`](../../../src/agents/nami/teams/research/curateMorningReport.ts)
 - `TOP_N` (현재 `10`)
 - `MAX_PER_TOPIC` (현재 `3`)
 - `MAX_PER_AUTHOR` (현재 `1`)
-- score 가중치는 [`collectReferences.ts`](../../../src/agents/nami/tasks/collectReferences.ts) `engagementScore()`
+- score 가중치는 [`collectReferences.ts`](../../../src/agents/nami/teams/research/collectReferences.ts) `engagementScore()`
 
 ---
 
@@ -202,7 +202,7 @@
 ### 수집 실패·부족 시
 "오늘은 재료가 부족해. 기다려줘." 로 대체 발송.
 
-**편집**: [`src/agents/nami/tasks/deliverMorningReport.ts`](../../../src/agents/nami/tasks/deliverMorningReport.ts)
+**편집**: [`src/agents/nami/teams/research/deliverMorningReport.ts`](../../../src/agents/nami/teams/research/deliverMorningReport.ts)
 
 ---
 
@@ -211,15 +211,15 @@
 | 바꾸고 싶은 것 | 파일 | 상수·위치 |
 |---|---|---|
 | 시드 계정 추가/제거 | `src/agents/nami/seedAccounts.ts` | `THREADS_SEED_ACCOUNTS` 배열 |
-| 수집 최소 engagement | `src/agents/nami/tasks/collectReferences.ts` | `MIN_TOTAL_ENGAGEMENT` |
+| 수집 최소 engagement | `src/agents/nami/teams/research/collectReferences.ts` | `MIN_TOTAL_ENGAGEMENT` |
 | 포스트 최대 나이 | 동일 | `MAX_POST_AGE_HOURS` |
 | 계정 간 크롤 딜레이 | 동일 | `INTER_ACCOUNT_DELAY_MS` |
 | Chrome User-Agent | 동일 | `CHROME_UA` |
 | 본문 markdown 포맷 | 동일 `saveReference()` | body 템플릿 문자열 |
-| TOP N 개수 | `src/agents/nami/tasks/curateMorningReport.ts` | `TOP_N` |
+| TOP N 개수 | `src/agents/nami/teams/research/curateMorningReport.ts` | `TOP_N` |
 | 업종/작가 다양성 최대 | 동일 | `MAX_PER_TOPIC`, `MAX_PER_AUTHOR` |
 | 큐레이션 페이지 노션 위치 | 동일 | `env.NOTION_PARENT_PAGE_ID` |
-| 디스코드 메시지 문구 | `src/agents/nami/tasks/deliverMorningReport.ts` | `lines` 빌드 |
+| 디스코드 메시지 문구 | `src/agents/nami/teams/research/deliverMorningReport.ts` | `lines` 빌드 |
 | 배달 채널 | `src/config/env.ts` + `.env.local` | `DISCORD_CHANNEL_NAMI` |
 | cron 시각 (03/06/07) | `src/cron/cronConfig.ts` | `CRON.DAILY_03/06/07` |
 | cron 등록 on/off | `src/cron/jobs/namiReferences.ts` | `registerNamiReferenceJobs()` |

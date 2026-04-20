@@ -75,9 +75,9 @@
 1. **한 섹션씩 Q&A** — 1~3 답변 → 내가 요약 → 다음 섹션
 2. **매 섹션 확정마다 정의서에 반영** — `docs/agents/nami/content-production.md` (신규 생성 예정)
 3. **6개 섹션 모두 확정되면 구현 순서 제안** — 추정:
-   - `src/agents/nami/tasks/generateThreadsPost.ts` — 초안 생성
-   - `src/agents/nami/tasks/submitForApproval.ts` — 검수 UX
-   - `src/agents/nami/tasks/publishThread.ts` — 발행
+   - `src/agents/nami/teams/content/generateThreadsPost.ts` — 초안 생성
+   - `src/agents/nami/teams/content/submitForApproval.ts` — 검수 UX
+   - `src/agents/nami/teams/content/publishThread.ts` — 발행
    - `src/agents/nami/tasks/measurePerformance.ts` — 성과 수집
    - cron 추가 (생성 1회/일, 성과 수집 2~3회/일)
 

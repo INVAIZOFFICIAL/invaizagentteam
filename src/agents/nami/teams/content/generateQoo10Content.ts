@@ -1,9 +1,9 @@
 import { runClaude } from '@/claude/client.js';
-import { NAMI_PERSONALITY } from '../nami.personality.js';
+import { NAMI_PERSONALITY } from '../../nami.personality.js';
 import { logger } from '@/utils/logger.js';
 import { extractJsonFromText } from '@/utils/jsonExtraction.js';
 import { nowIso } from '@/utils/timestamps.js';
-import type { CompetitorContent } from './crawlCompetitor.js';
+import type { CompetitorContent } from '../research/crawlCompetitor.js';
 
 export interface Qoo10ContentInput {
   productName: string;

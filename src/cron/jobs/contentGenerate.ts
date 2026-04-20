@@ -10,7 +10,7 @@ export function registerContentGenerateJob(_namiAgent: NamiAgent): void {
     fn: async () => {
       logger.info('cron', '나미 스레드 초안 자동 생성 시작');
       const { generateThreadsPost } = await import(
-        '@/agents/nami/tasks/generateThreadsPost.js'
+        '@/agents/nami/teams/content/generateThreadsPost.js'
       );
       await generateThreadsPost();
     },

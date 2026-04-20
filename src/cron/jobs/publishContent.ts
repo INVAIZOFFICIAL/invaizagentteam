@@ -7,7 +7,7 @@ export function registerPublishContentJob(): void {
     schedule: CRON.EVERY_10MIN,
     fn: async () => {
       const { publishPendingThreads } = await import(
-        '@/agents/nami/tasks/publishThread.js'
+        '@/agents/nami/teams/content/publishThread.js'
       );
       await publishPendingThreads();
     },

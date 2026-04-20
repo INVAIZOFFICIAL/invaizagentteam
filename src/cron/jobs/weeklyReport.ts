@@ -7,7 +7,7 @@ export function registerWeeklyReportJob(): void {
     schedule: CRON.WEEKLY_MON_09,
     fn: async () => {
       const { generateWeeklyReport } = await import(
-        '@/agents/nami/tasks/generateWeeklyReport.js'
+        '@/agents/nami/teams/analytics/generateWeeklyReport.js'
       );
       await generateWeeklyReport();
     },

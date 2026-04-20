@@ -89,13 +89,23 @@ npm run test:discord
 │   │   │   ├── LuffyAgent.ts      # 대장 — 팀 얼라인먼트 & 중재
 │   │   │   └── luffy.personality.ts
 │   │   ├── nami/
-│   │   │   ├── NamiAgent.ts       # 콘텐츠 팀장
+│   │   │   ├── NamiAgent.ts         # 콘텐츠 팀장 (Orchestrator — 판단·배분)
 │   │   │   ├── nami.personality.ts
-│   │   │   └── tasks/
-│   │   │       ├── crawlCompetitor.ts
-│   │   │       ├── generateThreadsPost.ts    # 스레드 발행 초안 생성
-│   │   │       ├── generateBlogPost.ts       # Framer 블로그 발행 초안 생성
-│   │   │       └── analyzePerformance.ts
+│   │   │   ├── seedAccounts.ts      # Threads 시드 계정 목록
+│   │   │   └── teams/
+│   │   │       ├── research/        # 레퍼런스 수집팀
+│   │   │       │   ├── collectReferences.ts    # 시드 계정 크롤링 → Notion 저장
+│   │   │       │   ├── curateMorningReport.ts  # TOP 10 큐레이션
+│   │   │       │   ├── deliverMorningReport.ts # Discord 모닝 리포트 전송
+│   │   │       │   └── crawlCompetitor.ts      # 경쟁사 URL 분석
+│   │   │       ├── content/         # 콘텐츠 생성·발행팀
+│   │   │       │   ├── generateThreadsPost.ts  # 스레드 초안 2건 생성
+│   │   │       │   ├── submitForApproval.ts    # Discord 검수 요청 & 승인 처리
+│   │   │       │   ├── publishThread.ts        # 승인된 초안 Threads 자동 발행
+│   │   │       │   └── generateBlogPost.ts     # [예정] Framer 블로그 초안 생성
+│   │   │       └── analytics/       # 성과 분석팀
+│   │   │           ├── analyzePerformance.ts   # 성과 지표 해석
+│   │   │           └── generateWeeklyReport.ts # 주간 리포트 생성
 │   │   ├── zoro/
 │   │   │   ├── ZoroAgent.ts       # 리드 수집 팀장
 │   │   │   ├── zoro.personality.ts
@@ -428,6 +438,24 @@ interface DomSpec {
   analyzedAt: string;
 }
 ```
+
+### 6. 나미 팀 내 라우팅 룰
+
+> `NamiAgent.parseTask()`의 현재 구현을 문서화한 것. 코드 변경 시 반드시 여기도 동기화.
+
+Discord 메시지 키워드 → 담당 팀 파일 매핑:
+
+| 키워드 패턴 | 액션 | 담당 파일 |
+|---|---|---|
+| "@handle 수집" / "레퍼런스 수집" + 실행 동사 | `collect_references` | `teams/research/collectReferences.ts` |
+| "피드/트렌딩/잘되는/인기/핫한" + 수집 동사 | `collect_feed` | `teams/research/collectReferences.ts` |
+| "경쟁사/크롤/벤치" + URL 포함 | `crawl_competitor` | `teams/research/crawlCompetitor.ts` |
+| "초안" + 실행 동사 | `generate_threads_post` | `teams/content/generateThreadsPost.ts` |
+| "주간리포트/리포트" + 실행 동사 | `weekly_report` | `teams/analytics/generateWeeklyReport.ts` |
+| "댓글/리플/reply" + 수집 동사 | `fetch_comments` | `cron/jobs/fetchThreadsComments.ts` |
+| "인사이트/지표 수집" + 수집 동사 | `fetch_insights` | `cron/jobs/fetchThreadsInsights.ts` |
+| "성과/지표/ctr" + 실행 동사 | `analyze_performance` | `teams/analytics/analyzePerformance.ts` |
+| 그 외 | `ask_claude` | NamiAgent 자연 대화 처리 |
 
 ---
 
