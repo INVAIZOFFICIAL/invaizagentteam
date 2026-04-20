@@ -44,16 +44,12 @@ export type KnowledgeCategory =
   | '데이터통계'
   | '툴리소스';
 
-// 지식 베이스 DB 의 `신뢰도` Select 값
-export type KnowledgeReliability = '1차자료' | '2차자료' | '소문추정';
-
 // 지식 베이스 DB 의 `상태` Select 값
 export type KnowledgeStatus = 'Inbox' | 'Raw' | '검증됨' | '활용됨' | '보관';
 
 export interface KnowledgeEntry {
   title: string;
   category: KnowledgeCategory;
-  collector: string; // 수집자 (에이전트 이름)
   content: string; // 페이지 children 본문 (배울점·메타)
   contentText?: string; // 콘텐츠 속성 — 원문+댓글 구분자 포함 (최대 2000자)
   author?: string; // 작성자 핸들
@@ -67,7 +63,6 @@ export interface KnowledgeEntry {
   tags?: string[]; // 태그 (멀티 셀렉트)
   collectedAt?: string; // 수집일 (ISO date)
   publishedAt?: string; // 발행일 (ISO datetime — 포스트 원문 발행 시각)
-  reliability?: KnowledgeReliability;
   status?: KnowledgeStatus; // 기본 'Raw'
 }
 
@@ -88,7 +83,6 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
     const properties: NotionPropertyBag = {
       제목: { title: [{ text: { content: entry.title } }] },
       카테고리: { select: { name: entry.category } },
-      수집자: { select: { name: entry.collector } },
       상태: { select: { name: entry.status ?? 'Raw' } },
     };
 
@@ -140,10 +134,6 @@ export async function saveToKnowledgeBase(entry: KnowledgeEntry): Promise<string
     if (entry.publishedAt) {
       properties['발행일'] = { date: { start: entry.publishedAt } };
     }
-    if (entry.reliability) {
-      properties['신뢰도'] = { select: { name: entry.reliability } };
-    }
-
     const page = await notionClient.pages.create({
       parent: { database_id: env.NOTION_KNOWLEDGE_DB_ID },
       properties,

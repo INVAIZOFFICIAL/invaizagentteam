@@ -70,128 +70,83 @@
 
 ---
 
-## Sprint 2 — 나미: 레퍼런스 수집 (10일)
+## Sprint 2 — 나미: 레퍼런스 수집 파이프라인 ✅ 완료
 
-**목표**: Qoo10 JP + Threads 경쟁사 + Kpop 정보 자동 수집 → Notion 저장
+**목표**: Threads 시드 계정 크롤 → 분류 → 지식 베이스 저장 → 큐레이션 → Discord 배달
 
-### 나미 인격
-- [ ] `src/agents/nami/nami.personality.ts`
-  ```
-  "숫자가 말해주잖아" 말투
-  판단 기준: ROI 있나? 데이터로 검증 가능한가?
-  전문 영역: 콘텐츠 전략, SEO, SNS 성과 분석
-  ```
-- [ ] `src/agents/nami/NamiAgent.ts` — BaseAgent 상속, 기본 메시지 핸들링
+### 완료된 파일
+- [x] `src/agents/nami/nami.personality.ts`
+- [x] `src/agents/nami/NamiAgent.ts`
+- [x] `src/agents/nami/seedAccounts.ts` — 시드 계정 21개
+- [x] `src/agents/nami/tasks/collectReferences.ts` — Playwright 크롤 + Claude 배치 분류
+- [x] `src/agents/nami/tasks/curateMorningReport.ts` — TOP 10 선정 + Notion 페이지 생성
+- [x] `src/agents/nami/tasks/deliverMorningReport.ts` — Discord `#콘텐츠팀-나미` 배달
+- [x] `src/notion/databases/knowledgeDb.ts` — 지식 베이스 DB
+- [x] cron: 03:00 수집 / 06:00 큐레이션 / 07:00 배달
 
-### Qoo10 JP 수집
-- [ ] `src/scrapers/playwrightScraper.ts` — Playwright Stealth 브라우저 풀
-- [ ] `src/agents/nami/tasks/crawlQoo10.ts`
-  - Qoo10 JP Kpop 카테고리 랭킹 수집 (상품명, 가격, 판매량, 상품 설명 패턴)
-  - 베스트셀러 상위 50개 정기 수집 (cron 일 1회)
-  - robots.txt 확인 후 Playwright로 크롤링
-  - 수집 결과 → `contentDb`에 저장
-
-### Threads 경쟁사 수집
-- [ ] `src/agents/nami/tasks/crawlThreads.ts`
-  - Threads API로 Kpop/역직구 관련 키워드 검색
-  - 경쟁사 계정 자동 발굴 (팔로워 수, 인게이지먼트 기준 필터링)
-  - 성과 좋은 포스트 수집 (좋아요 + 댓글 + 리포스트 기준 상위)
-  - Threads API 불가 영역은 Playwright 보완
-  - 수집 결과 → `contentDb`에 저장
-
-### Kpop 해외 판매 정보 수집
-- [ ] `src/agents/nami/tasks/crawlKpopInfo.ts`
-  - Kpop 역직구 관련 뉴스/트렌드 수집 (구글 뉴스, 커뮤니티)
-  - 해외 Kpop 판매 관련 정보 (아마존, 이베이 Kpop 섹션 등)
-  - 주 1회 cron 실행
-  - 수집 결과 → `contentDb`에 저장
-
-### Notion DB
-- [ ] `src/notion/databases/contentDb.ts`
-  - 레퍼런스 저장 스키마: 소스, URL, 수집일, 성과지표, 카테고리(Qoo10/Threads/뉴스)
-  - 콘텐츠 초안 저장 스키마: 타입(스레드/블로그), 상태(초안/검토중/승인/발행), 발행일
-
-### cron 등록
-- [ ] `src/cron/jobs/namiCrawl.ts` — Qoo10 일 1회 + Kpop 정보 주 1회
-
-**DoD**: `@나미 레퍼런스 수집해줘` → Qoo10 + Threads + Kpop 정보 수집 → Notion `콘텐츠 레퍼런스 DB`에 저장 확인
+**결과**: 매일 자동으로 레퍼런스 수집·분류·큐레이션·배달 파이프라인 가동 중
 
 ---
 
-## Sprint 3 — 나미: 분석 + 전략 + 콘텐츠 제작 (10일)
+## Sprint 3 — 나미: 콘텐츠 생성·검수 ← **현재 위치**
 
-**목표**: 수집된 레퍼런스 기반 Claude 분석 → 전략 디스코드 제시 → 초안 생성 → Notion 저장
+**목표**: 레퍼런스 기반 초안 자동 생성 + Discord 아이데이션·검수 루프
 
-### 분석 + 전략
-- [ ] `src/agents/nami/tasks/analyzeReferences.ts`
-  - 수집된 레퍼런스 Claude 분석
-  - 성과 좋은 콘텐츠 패턴 도출 (형식, 주제, 키워드, 길이 등)
-  - 경쟁사 포지셔닝 파악
-  - 분석 결과 → Notion 저장 + Discord `#콘텐츠팀-나미` 채널에 전략안 제시
-  - 사람이 Discord에서 피드백 → 전략 확정
+> 정의서: `docs/agents/nami/content-production.md`
+> 구현 프롬프트: `docs/prompts/nami-content-production-implement.md`
 
-### 콘텐츠 제작 — Threads
+### 콘텐츠 DB 수정
+- [ ] `src/notion/databases/contentDb.ts` — 이미지(files) 속성 추가
+
+### 초안 생성
 - [ ] `src/agents/nami/tasks/generateThreadsPost.ts`
-  - 확정된 전략 기반 Threads 포스트 초안 생성
-  - 형식: 훅 문장 + 본문 3~5개 포인트 + CTA
-  - Kpop 제품 관련 콘텐츠 특화 (해외 구매 꿀팁, 신제품 소개 등)
-  - 초안 → Notion `콘텐츠 초안 DB`에 저장 (상태: 초안)
-  - Discord에 "초안 만들었어! 확인해봐" 알림
+  - 레퍼런스 TOP + 기존 성과 좋은 발행물 참고
+  - AI 말투 방지 — 레퍼런스 실제 문체 패턴 프롬프트 주입
+  - 초안 2건 생성 (T+1 발행 기준)
+  - Discord `#콘텐츠팀-나미`에 2건 동시 보고
 
-### 콘텐츠 제작 — 블로그 SEO
-- [ ] `src/agents/nami/tasks/generateBlogPost.ts`
-  - Qoo10 JP 상품 설명 패턴 + Kpop 트렌드 기반 SEO 글 초안 생성
-  - 키워드 선정, H2/H3 구조, 내부 링크 제안 포함
-  - 초안 → Notion `콘텐츠 초안 DB`에 저장 (상태: 초안)
-  - Discord에 알림
+### 검수·아이데이션 루프
+- [ ] `src/agents/nami/tasks/submitForApproval.ts`
+  - Discord 메시지 파싱 (수정 요청 / 아이데이션 / OK 판단)
+  - 나미가 레퍼런스·성과 데이터 근거로 논의 참여 (콘텐츠 파트너)
+  - OK 확인 후 노션 콘텐츠 DB 저장 (발행예정일시 포함, 상태: 발행대기)
+  - 논의 중 중간 저장 없음
 
 ### cron 등록
-- [ ] `src/cron/jobs/namiGenerate.ts` — `CRON.DAILY_10` (매일 10:00 전략 기반 초안 자동 생성)
+- [ ] `src/cron/jobs/generateContent.ts` — 매일 04:00 초안 자동 생성
 
 **DoD**:
-- `@나미 분석해줘` → Discord에 전략안 제시 → 피드백 반영 확인
-- `@나미 스레드 만들어줘` → Threads 포스트 초안 Notion 저장 + Discord 알림
-- `@나미 블로그 써줘` → 블로그 초안 Notion 저장 + Discord 알림
+- 매일 새벽 초안 2건 Discord 자동 보고
+- 텍스트 피드백 → 나미 수정·재보고 → OK → 노션 발행대기 저장 E2E 확인
 
 ---
 
-## Sprint 4 — 나미: 발행 + 성과 수집 + 인사이트 (10일)
+## Sprint 4 — 나미: 발행·성과수집·학습루프 (10일)
 
-**목표**: Threads 자동 발행 + 성과 수집 + 피드백 루프 완성
+**목표**: 자동 발행 + 5일 성과 수집 + 데이터 기반 학습 루프 완성
 
-### Threads 자동 발행
-- [ ] `src/agents/nami/tasks/publishToThreads.ts`
-  - Notion `콘텐츠 초안 DB`에서 상태가 "승인"인 항목 조회
-  - Threads API로 자동 발행
-  - 발행 성공 → Notion 상태 "발행완료" + 발행일 기록
-  - Discord `#콘텐츠팀-나미`에 발행 알림
-  - 발행 실패 시 Discord 에러 알림
+### 자동 발행
+- [ ] `src/agents/nami/tasks/publishThread.ts`
+  - 콘텐츠 DB `상태=발행대기` + `발행일≤now` 조회
+  - 포스트 간 최소 3시간 간격 체크
+  - 이미지 있으면 미디어 업로드 후 포함
+  - Threads Graph API 자동 발행
+  - 발행 성공: 상태 `발행완료` + 발행URL 업데이트 + Discord 알림
 
 ### 성과 수집
-- [ ] `src/agents/nami/tasks/collectPerformance.ts`
-  - Threads API로 발행된 포스트 성과 수집 (좋아요, 댓글, 리포스트, 조회수)
-  - Notion `성과 DB`에 자동 저장
-  - cron 일 1회 실행
-
-### 인사이트 분석
-- [ ] `src/agents/nami/tasks/analyzePerformance.ts`
-  - 성과 데이터 기반 Claude 분석
-  - 어떤 포스트가 잘 됐는지, 왜 잘 됐는지 패턴 도출
-  - 다음 전략에 반영할 인사이트 정리
-  - 주 1회 Discord에 성과 리포트 발송
-
-### Notion DB
-- [ ] `src/notion/databases/performanceDb.ts` — 성과 데이터 저장 스키마
+- [ ] `src/agents/nami/tasks/measurePerformance.ts`
+  - 발행 후 5일간, 매일 24h 주기 수집
+  - `fetchPostInsights()` 호출 → 성과 DB 저장
+  - 5일 경과 포스트 자동 중단
 
 ### cron 등록
-- [ ] `src/cron/jobs/namiPublish.ts` — 매일 승인된 콘텐츠 자동 발행
-- [ ] `src/cron/jobs/namiPerformance.ts` — 일 1회 성과 수집, 주 1회 리포트
+- [ ] `src/cron/jobs/publishContent.ts` — 매 10분 발행대기 체크
+- [ ] `src/cron/jobs/collectPerformance.ts` — 매일 14:00 성과 수집
 
 **DoD**:
-- Notion에서 초안 "승인" 처리 → Threads 자동 발행 확인
-- 발행 포스트 성과가 Notion에 자동 수집됨
-- 주 1회 성과 리포트 Discord 수신 확인
-- 나미 전체 파이프라인 E2E 통과
+- 발행예정일시 도달 → Threads 자동 발행 확인
+- 발행 후 5일간 성과 DB 자동 업데이트 확인
+- 나미 전체 파이프라인 (수집→큐레이션→초안→검수→발행→성과) E2E 통과
 
 ---
 

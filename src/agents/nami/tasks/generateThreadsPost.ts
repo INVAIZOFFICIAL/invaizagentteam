@@ -1,7 +1,7 @@
 // 스레드 초안 생성 태스크 (04:00 cron + 수동 트리거)
 //
-// 역할: 레퍼런스 TOP 10 문체 주입 → Claude 초안 2건 생성 →
-//       #콘텐츠팀-나미에 A/B 형태로 보고.
+// 역할: 레퍼런스 상위 2건 선별 (hooking 유형 다양성 우선) →
+//       각 레퍼런스 1:1 대응 초안 생성 → Notion 초안 저장 → Discord 보고
 //
 // 검수 세션 (draftSessions) 은 이 파일에서 관리.
 // submitForApproval.ts 가 여기서 export 한 세션 맵을 직접 수정.
@@ -13,7 +13,7 @@ import { logger } from '@/utils/logger.js';
 import { runClaude } from '@/claude/client.js';
 import { NAMI_PERSONALITY } from '@/agents/nami/nami.personality.js';
 import { queryRecentReferences } from '@/notion/databases/knowledgeDb.js';
-import { getPublishedThreadsContents } from '@/notion/databases/contentDb.js';
+import { getPublishedThreadsContents, saveContentToNotion } from '@/notion/databases/contentDb.js';
 import { splitMessage } from '@/discord/formatters/messageFormatter.js';
 import { extractJsonFromText } from '@/utils/jsonExtraction.js';
 
@@ -21,6 +21,7 @@ export interface Draft {
   title: string;
   content: string;
   hookCopy: string;
+  refTitle?: string; // 토대가 된 레퍼런스 제목
 }
 
 export interface DraftSession {
@@ -31,6 +32,8 @@ export interface DraftSession {
   botMessageId: string;
   channelId: string;
   createdAt: Date;
+  notionPageIdA?: string;
+  notionPageIdB?: string;
 }
 
 // channelId → 활성 검수 세션 (채널당 1개)
@@ -43,51 +46,76 @@ export interface DraftRequestSession {
 }
 export const draftRequestSessions = new Map<string, DraftRequestSession>();
 
+// Notion 페이지 URL에서 마지막 32자리 ID 추출
+function extractPageIdFromUrl(url: string): string | undefined {
+  const match = url.match(/([a-f0-9]{32})$/);
+  return match?.[1];
+}
+
 function yesterdayString(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+type Ref = { title: string; summary: string; hooking: string };
+
+// hooking 유형이 다른 2개 우선 선별 → 다양성 확보
+function pickTwoRefs(refs: Ref[]): [Ref, Ref] {
+  const first = refs[0];
+  const diffHook = refs.slice(1).find((r) => r.hooking !== first.hooking);
+  const second = diffHook ?? refs[1] ?? refs[0];
+  return [first, second];
+}
+
 function buildGenerationPrompt(
-  references: { title: string; summary: string; hooking: string }[],
+  refA: Ref,
+  refB: Ref,
   existingTitles: string[],
   userContext?: string,
 ): string {
-  const refExamples = references
-    .slice(0, 5)
-    .map(
-      (r, i) =>
-        `[예시 ${i + 1}] 후킹 유형: ${r.hooking || '기타'}\n${r.summary.slice(0, 400)}`,
-    )
-    .join('\n\n---\n\n');
-
   const existingNote =
     existingTitles.length > 0
-      ? `\n\n최근 발행 주제 (중복 각도 피하기):\n${existingTitles.map((t) => `- ${t}`).join('\n')}`
+      ? `\n최근 발행 주제 (중복 각도 피하기):\n${existingTitles.map((t) => `- ${t}`).join('\n')}\n`
       : '';
 
   const userContextNote = userContext
-    ? `\n\n[담당자 요청사항]\n${userContext}\n위 요청사항을 반드시 반영해.`
+    ? `\n[담당자 요청사항]\n${userContext}\n위 요청사항을 반드시 반영해.\n`
     : '';
 
-  return `[레퍼런스 문체 예시]
-${refExamples}${existingNote}
+  return `우리는 DayZero 팀이야. 한국→일본 역직구 자동화 SaaS. 지금은 사전 신청 단계.
+${existingNote}${userContextNote}
+---
+
+[레퍼런스 1] — 초안 A의 토대
+제목: ${refA.title}
+후킹 유형: ${refA.hooking || '기타'}
+내용:
+${refA.summary.slice(0, 600)}
+
+---
+
+[레퍼런스 2] — 초안 B의 토대
+제목: ${refB.title}
+후킹 유형: ${refB.hooking || '기타'}
+내용:
+${refB.summary.slice(0, 600)}
 
 ---
 
 [임무]
-위 레퍼런스의 문체·리듬·후킹 구조를 분석한 뒤, 역직구 셀러를 위한 Threads 포스트 초안 2건을 작성해.
+각 레퍼런스의 문체·리듬·후킹 구조를 그대로 흡수해서,
+역직구 셀러를 위한 Threads 포스트를 레퍼런스별로 1건씩 작성해.
 
-우리는 DayZero 팀이야. 한국→일본 역직구 자동화 SaaS. 지금은 사전 신청 단계.
+- 초안 A: 레퍼런스 1의 각도·문체·리듬을 살려서 작성
+- 초안 B: 레퍼런스 2의 각도·문체·리듬을 살려서 작성
 
 [작성 규칙]
-- AI 말투 완전 금지: "~할 수 있습니다", "~이어야 합니다", "~해보세요" 형식 쓰지 마.
+- AI 말투 완전 금지: "~할 수 있습니다", "~이어야 합니다", "~해보세요" 금지
 - 레퍼런스처럼 짧고 끊기는 문장. 독자가 멈추게 만들어.
 - 역직구 셀러의 실제 고통·상황을 구체적으로 짚어.
 - 소프트셀. DayZero 직접 언급 없어도 됨. 가치 제공 우선.
 - 각 포스트 250자 이내.
-- A와 B는 서로 다른 후킹 유형으로.${userContextNote}
 
 [출력 형식] JSON만 출력. 다른 텍스트 없음.
 {
@@ -106,26 +134,29 @@ ${refExamples}${existingNote}
 
 function formatDraftMessage(
   pair: { draftA: Draft; draftB: Draft },
-  refTitles: string[],
+  refA: Ref,
+  refB: Ref,
+  notionUrlA?: string,
+  notionUrlB?: string,
 ): string {
   const quoteA = pair.draftA.content.replace(/\n/g, '\n> ');
   const quoteB = pair.draftB.content.replace(/\n/g, '\n> ');
-  const refLine =
-    refTitles.length > 0
-      ? `\n📚 **토대 레퍼런스:** ${refTitles.slice(0, 3).join(' / ')}`
-      : '';
+  const notionLineA = notionUrlA ? ` 📎 [노션](${notionUrlA})` : '';
+  const notionLineB = notionUrlB ? ` 📎 [노션](${notionUrlB})` : '';
   return [
-    `📝 **오늘 초안 2건**${refLine}`,
+    `📝 **오늘 초안 2건**`,
     ``,
-    `**[초안 A]** ${pair.draftA.hookCopy}`,
+    `**[초안 A]** ${pair.draftA.hookCopy}${notionLineA}`,
+    `📌 토대: _${refA.title}_`,
     `> ${quoteA}`,
     ``,
-    `**[초안 B]** ${pair.draftB.hookCopy}`,
+    `**[초안 B]** ${pair.draftB.hookCopy}${notionLineB}`,
+    `📌 토대: _${refB.title}_`,
     `> ${quoteB}`,
     ``,
     `---`,
-    `A 또는 B 골라서 수정 요청하거나, 새 각도 아이디어 줘도 돼.`,
-    `확정은 \`OK 내일 오전 10시\` 처럼 발행일시랑 같이.`,
+    `노션에서 수정 후 상태를 **발행대기** + 발행일 설정하면 자동 발행돼.`,
+    `Discord에서 확정하려면 A 또는 B 선택 후 \`OK 내일 오전 10시\` 형태로.`,
   ].join('\n');
 }
 
@@ -156,9 +187,11 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
       return;
     }
 
+    const [refA, refB] = pickTwoRefs(sorted);
     const existing = await getPublishedThreadsContents(7).catch(() => []);
     const prompt = buildGenerationPrompt(
-      sorted,
+      refA,
+      refB,
       existing.map((p) => p.title),
       userContext,
     );
@@ -177,9 +210,31 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
       throw new Error('초안 형식 오류 — draftA/draftB content 없음');
     }
 
-    const refTitles = sorted.slice(0, 3).map((r) => r.title);
+    pair.draftA.refTitle = refA.title;
+    pair.draftB.refTitle = refB.title;
+
+    // 초안 2건 Notion에 `초안` 상태로 즉시 저장
+    const [notionUrlA, notionUrlB] = await Promise.all([
+      saveContentToNotion({
+        title: pair.draftA.title,
+        channel: 'Threads',
+        content: pair.draftA.content,
+        status: '초안',
+        agentName: 'nami',
+        hookCopy: pair.draftA.hookCopy,
+      }),
+      saveContentToNotion({
+        title: pair.draftB.title,
+        channel: 'Threads',
+        content: pair.draftB.content,
+        status: '초안',
+        agentName: 'nami',
+        hookCopy: pair.draftB.hookCopy,
+      }),
+    ]);
+
     const sentMessages: import('discord.js').Message[] = [];
-    for (const chunk of splitMessage(formatDraftMessage(pair, refTitles), 1900)) {
+    for (const chunk of splitMessage(formatDraftMessage(pair, refA, refB, notionUrlA, notionUrlB), 1900)) {
       const sent = await textChannel.send(chunk);
       sentMessages.push(sent);
     }
@@ -193,9 +248,11 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
       botMessageId,
       channelId: env.DISCORD_CHANNEL_NAMI,
       createdAt: new Date(),
+      notionPageIdA: notionUrlA ? extractPageIdFromUrl(notionUrlA) : undefined,
+      notionPageIdB: notionUrlB ? extractPageIdFromUrl(notionUrlB) : undefined,
     });
 
-    logger.info('nami', `초안 2건 Discord 전송 완료 (refs: ${sorted.length}건)`);
+    logger.info('nami', `초안 2건 Discord 전송 + Notion 저장 완료 (refs: ${sorted.length}건)`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error('nami', '초안 생성 실패', err);

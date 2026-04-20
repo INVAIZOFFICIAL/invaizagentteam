@@ -36,6 +36,7 @@ export interface ContentDbEntry {
   publishUrl?: string; // 발행 URL
   hookCopy?: string; // 훅카피 (검토 시 빠른 훑기용)
   targetPersonas?: string[]; // 타겟페르소나 (멀티 셀렉트)
+  mediaUrl?: string; // 이미지 또는 영상 URL (Threads 발행 시 첨부)
 }
 
 // 노션 콘텐츠 DB 에 새 페이지 저장 — 나미 전용
@@ -51,7 +52,7 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
       채널: { select: { name: entry.channel } },
       // `상태` 는 Notion Status 타입 (select 아님) — Status 필드는 `status: { name }` 포맷
       상태: { status: { name: entry.status } },
-      담당에이전트: { select: { name: entry.agentName ?? 'nami' } },
+
     };
 
     if (entry.publishDate) {
@@ -59,6 +60,11 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
     }
     if (entry.publishUrl) {
       properties['발행URL'] = { url: entry.publishUrl };
+    }
+    if (entry.mediaUrl) {
+      properties['이미지'] = {
+        files: [{ name: '미디어', type: 'external', external: { url: entry.mediaUrl } }],
+      };
     }
     if (entry.hookCopy) {
       properties['훅카피'] = { rich_text: [{ text: { content: entry.hookCopy } }] };
@@ -186,6 +192,7 @@ export interface PendingContent {
   title: string;
   publishDate: string; // ISO datetime
   hookCopy?: string;
+  mediaUrl?: string; // 이미지/영상 URL
 }
 
 /**
@@ -219,12 +226,17 @@ export async function getPendingContents(): Promise<PendingContent[]> {
         const hookCopy = (hookCopyArr as { plain_text: string }[])
           .map((t) => t.plain_text)
           .join('');
+        const imageFiles: { file?: { url: string }; external?: { url: string } }[] =
+          props['이미지']?.files ?? [];
+        const mediaUrl: string | undefined =
+          imageFiles[0]?.file?.url ?? imageFiles[0]?.external?.url ?? undefined;
         if (!publishDate) return null;
         return {
           pageId: page.id,
           title: titleProp?.title[0]?.plain_text ?? '',
           publishDate,
           hookCopy: hookCopy || undefined,
+          mediaUrl,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -256,7 +268,30 @@ export async function getPageContentText(pageId: string): Promise<string> {
 }
 
 /**
- * 콘텐츠 발행 완료 처리 — 상태를 발행완료로, 발행URL 기록
+ * 콘텐츠 상태 및 발행일 업데이트 — 초안 → 발행대기 전환 등에 사용
+ */
+export async function updateContentStatusAndDate(
+  pageId: string,
+  status: ContentStatus,
+  publishDate?: string,
+): Promise<void> {
+  try {
+    const properties: NotionPropertyBag = {
+      상태: { status: { name: status } },
+    };
+    if (publishDate) {
+      properties['발행일'] = { date: { start: publishDate } };
+    }
+    await notionClient.pages.update({ page_id: pageId, properties });
+    logger.info('nami', `콘텐츠 상태 업데이트: ${pageId} → ${status}`);
+  } catch (err) {
+    logger.error('nami', `콘텐츠 상태 업데이트 실패: ${pageId}`, err);
+    throw err;
+  }
+}
+
+/**
+ * 콘텐츠 발행 완료 처리 — 상태를 발행완료로, 발행URL 기록, 발행일을 실제 발행 시각으로 갱신
  */
 export async function updateContentPublishInfo(pageId: string, publishUrl: string): Promise<void> {
   try {
@@ -265,6 +300,7 @@ export async function updateContentPublishInfo(pageId: string, publishUrl: strin
       properties: {
         상태: { status: { name: '발행완료' } },
         발행URL: { url: publishUrl },
+        발행일: { date: { start: new Date().toISOString() } },
       },
     });
     logger.info('nami', `발행완료 업데이트: ${pageId}`);

@@ -15,6 +15,45 @@ import {
 } from '@/notion/databases/contentDb.js';
 
 const MIN_GAP_HOURS = 3;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 10_000;
+
+async function attemptPublish(
+  content: string,
+  mediaUrl: string | undefined,
+  retries = MAX_RETRIES,
+): Promise<{ id: string; permalink?: string }> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      return await publishTextPost(content, mediaUrl);
+    } catch (err) {
+      lastErr = err;
+      if (attempt <= retries) {
+        logger.warn('nami', `발행 실패 (시도 ${attempt}/${retries + 1}) — ${RETRY_DELAY_MS / 1000}초 후 재시도`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+function buildErrorReport(err: unknown): string {
+  if (!(err instanceof Error)) return String(err).slice(0, 300);
+  const lines: string[] = [err.message.slice(0, 200)];
+  // Threads API 응답 본문이 메시지에 포함돼 있으면 그대로 노출
+  const apiMatch = err.message.match(/Threads API \d+ on [^:]+: (.+)/s);
+  if (apiMatch) {
+    try {
+      const parsed = JSON.parse(apiMatch[1]);
+      const detail = parsed?.error?.message ?? parsed?.error ?? apiMatch[1];
+      lines.push(`API 오류: ${String(detail).slice(0, 150)}`);
+    } catch {
+      lines.push(`API 응답: ${apiMatch[1].slice(0, 150)}`);
+    }
+  }
+  return lines.join('\n');
+}
 
 export async function publishPendingThreads(): Promise<void> {
   const pending = await getPendingContents();
@@ -44,8 +83,8 @@ export async function publishPendingThreads(): Promise<void> {
     }
 
     try {
-      logger.info('nami', `발행 시작: ${item.title}`);
-      const result = await publishTextPost(content);
+      logger.info('nami', `발행 시작: ${item.title}${item.mediaUrl ? ' (미디어 첨부)' : ''}`);
+      const result = await attemptPublish(content, item.mediaUrl);
 
       const publishUrl = result.permalink ?? `https://www.threads.net/p/${result.id}`;
       await updateContentPublishInfo(item.pageId, publishUrl);
@@ -53,11 +92,12 @@ export async function publishPendingThreads(): Promise<void> {
       logger.info('nami', `발행 완료: ${item.title} → ${publishUrl}`);
       textChannel?.send(`🍊 **발행 완료!** ${item.title}\n📎 ${publishUrl}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error('nami', `발행 실패: ${item.title}`, err);
-      textChannel?.send(`🍊 발행 실패: **${item.title}**\n\`${msg.slice(0, 200)}\``);
-
-      // 발행 실패는 다음 item으로 넘어가지 않고 중단 (중복 발행 방지)
+      logger.error('nami', `발행 실패 (재시도 ${MAX_RETRIES}회 소진): ${item.title}`, err);
+      const report = buildErrorReport(err);
+      textChannel?.send(
+        `🍊 **발행 실패** (${MAX_RETRIES}회 재시도 후 포기): **${item.title}**\n\`\`\`\n${report}\n\`\`\``,
+      );
+      // 중복 발행 방지를 위해 중단
       break;
     }
   }

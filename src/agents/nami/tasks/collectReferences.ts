@@ -52,6 +52,12 @@ const EXTRACTION_SCRIPT = `(function () {
   function parseMetric(raw) {
     if (!raw) return 0;
     var cleaned = String(raw).replace(/[,\\s]/g, '');
+    var mKo = cleaned.match(/^(\\d+(?:\\.\\d+)?)(\\ucc9c|\\ub9cc)$/);
+    if (mKo) {
+      var nKo = parseFloat(mKo[1]);
+      if (mKo[2] === '\\ucc9c') return Math.round(nKo * 1000);
+      if (mKo[2] === '\\ub9cc') return Math.round(nKo * 10000);
+    }
     var m = cleaned.match(/^(\\d+(?:\\.\\d+)?)([KkMm]?)$/);
     if (!m) return 0;
     var n = parseFloat(m[1]);
@@ -70,7 +76,7 @@ const EXTRACTION_SCRIPT = `(function () {
         if (!btn) continue;
         var txt = (btn.innerText || '').trim();
         if (!txt) return 0;
-        var match = txt.match(/^(\\d+(?:[.,]\\d+)?[KkMm]?)$/);
+        var match = txt.match(/^(\\d+(?:[.,]\\d+)?(?:[KkMm]|\\ucc9c|\\ub9cc)?)$/);
         if (match) return parseMetric(match[1]);
         return 0;
       }
@@ -109,10 +115,14 @@ const EXTRACTION_SCRIPT = `(function () {
     var shares   = extractMetric(container, ['\\uacf5\\uc720', 'Share']);
     var raw = container.innerText || '';
     var lines = raw.split('\\n').map(function(l) { return l.trim(); }).filter(Boolean);
-    var NOISE = /^\\d+[.,\\d]*[KMkm]?$|^(\\ub313\\uae00|\\ub2f5\\uae00|\\ub9ac\\ud3ec\\uc2a4\\ud2b8|\\uc88b\\uc544\\uc694|\\uacf5\\uc720|\\uacf5\\uc720\\ud558\\uae30|\\uc778\\uc6a9|Reply|Replies|Repost|Like|Share|Send|Quote)$|^\\d+(\\uc77c|\\uc2dc\\uac04|\\ubd84|\\ucd08|\\uc8fc|\\uac1c\\uc6d4)\\uc804?$|^(\\ubc29\\uae08|just now)$|^\\d+[dhmsw]$/i;
+    var NOISE = /^\\d+(?:[.,]\\d+)?(?:[KMkm]|\\ucc9c|\\ub9cc)?$|^(\\ub313\\uae00|\\ub2f5\\uae00|\\ub9ac\\ud3ec\\uc2a4\\ud2b8|\\uc88b\\uc544\\uc694|\\uacf5\\uc720|\\uacf5\\uc720\\ud558\\uae30|\\uc778\\uc6a9|Reply|Replies|Repost|Like|Share|Send|Quote)$|^\\d+(\\uc77c|\\uc2dc\\uac04|\\ubd84|\\ucd08|\\uc8fc|\\uac1c\\uc6d4)\\uc804?$|^(\\ubc29\\uae08|just now)$|^\\d+[dhmsw]$|^\\/$|^\\.{1,3}$/i;
     var textLines = [];
     for (var j = 0; j < lines.length; j++) {
       if (!NOISE.test(lines[j])) textLines.push(lines[j]);
+    }
+    // 첫 줄이 작성자 아이디면 제거 (공백 없음, 영숫자·_·. 조합, 한글 없음)
+    if (textLines.length > 0 && /^@?[\\w.]{1,50}$/.test(textLines[0]) && !/[\\uAC00-\\uD7A3]/.test(textLines[0])) {
+      textLines.shift();
     }
     var text = textLines.join('\\n').trim();
     if (!text) continue;
@@ -478,7 +488,6 @@ ${cls.learning || '(미분류)'}
   await saveToKnowledgeBase({
     title,
     category: '스레드 레퍼런스',
-    collector: 'nami',
     content: body,
     contentText,
     author: acc.handle,
@@ -496,7 +505,6 @@ ${cls.learning || '(미분류)'}
       `seed:${acc.category}`,
     ],
     publishedAt: post.timestamp ? post.timestamp.split('T')[0] : undefined,
-    reliability: '1차자료',
     status: 'Inbox',
   });
 }

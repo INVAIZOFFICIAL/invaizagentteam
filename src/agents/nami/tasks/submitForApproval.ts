@@ -7,7 +7,7 @@ import type { Message, TextChannel } from 'discord.js';
 import { logger } from '@/utils/logger.js';
 import { runClaude } from '@/claude/client.js';
 import { NAMI_PERSONALITY } from '@/agents/nami/nami.personality.js';
-import { saveContentToNotion } from '@/notion/databases/contentDb.js';
+import { saveContentToNotion, updateContentStatusAndDate } from '@/notion/databases/contentDb.js';
 import { splitMessage } from '@/discord/formatters/messageFormatter.js';
 import { extractJsonFromText } from '@/utils/jsonExtraction.js';
 import { draftSessions, type Draft } from './generateThreadsPost.js';
@@ -120,15 +120,25 @@ export async function handleContentApproval(message: Message): Promise<boolean> 
     }
 
     try {
-      const notionUrl = await saveContentToNotion({
-        title: draft.title,
-        channel: 'Threads',
-        content: draft.content,
-        status: '발행대기',
-        agentName: 'nami',
-        publishDate: publishDatetime,
-        hookCopy: draft.hookCopy,
-      });
+      // 초안 생성 시 이미 Notion 페이지가 있으면 업데이트, 없으면 새로 생성
+      const existingPageId =
+        session.active === 'B' ? session.notionPageIdB : session.notionPageIdA;
+
+      let notionUrl: string | undefined;
+      if (existingPageId) {
+        await updateContentStatusAndDate(existingPageId, '발행대기', publishDatetime);
+        notionUrl = `https://notion.so/${existingPageId.replace(/-/g, '')}`;
+      } else {
+        notionUrl = await saveContentToNotion({
+          title: draft.title,
+          channel: 'Threads',
+          content: draft.content,
+          status: '발행대기',
+          agentName: 'nami',
+          publishDate: publishDatetime,
+          hookCopy: draft.hookCopy,
+        });
+      }
 
       draftSessions.delete(message.channelId);
 

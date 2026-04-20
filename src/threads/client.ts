@@ -153,13 +153,42 @@ async function threadsPost<T>(path: string, params: Record<string, string> = {})
   return (await res.json()) as T;
 }
 
+function inferMediaType(url: string): 'IMAGE' | 'VIDEO' {
+  return /\.(mp4|mov|avi|webm)(\?|$)/i.test(url) ? 'VIDEO' : 'IMAGE';
+}
+
+async function waitForContainer(creationId: string, timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await threadsGet<{ status: string; error_message?: string }>(
+      `/${creationId}`,
+      { fields: 'status,error_message' },
+    );
+    if (res.status === 'FINISHED') return;
+    if (res.status === 'ERROR') throw new Error(`미디어 컨테이너 오류: ${res.error_message ?? 'unknown'}`);
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+  throw new Error('미디어 컨테이너 준비 타임아웃 (30s)');
+}
+
 /**
- * 텍스트 미디어 컨테이너 생성 (발행 1단계)
- * @returns creation_id (이후 publishContainer 에 전달)
+ * 미디어 컨테이너 생성 (발행 1단계)
+ * mediaUrl 없으면 TEXT, 있으면 IMAGE/VIDEO 타입으로 생성
+ * @returns creation_id
  */
-export async function createMediaContainer(text: string): Promise<string> {
+export async function createMediaContainer(text: string, mediaUrl?: string): Promise<string> {
   const userId = env.THREADS_USER_ID;
   if (!userId) throw new Error('THREADS_USER_ID가 설정되지 않았습니다.');
+
+  if (mediaUrl) {
+    const mediaType = inferMediaType(mediaUrl);
+    const params: Record<string, string> = { media_type: mediaType, text };
+    if (mediaType === 'IMAGE') params['image_url'] = mediaUrl;
+    else params['video_url'] = mediaUrl;
+    const res = await threadsPost<{ id: string }>(`/${userId}/threads`, params);
+    await waitForContainer(res.id);
+    return res.id;
+  }
 
   const res = await threadsPost<{ id: string }>(`/${userId}/threads`, {
     media_type: 'TEXT',
@@ -183,12 +212,14 @@ export async function publishContainer(containerId: string): Promise<string> {
 }
 
 /**
- * 텍스트 포스트 1건 발행 (컨테이너 생성 → 발행 → permalink 조회)
+ * 포스트 1건 발행 (컨테이너 생성 → 발행 → permalink 조회)
+ * mediaUrl 있으면 이미지/영상 첨부
  */
-export async function publishTextPost(text: string): Promise<{ id: string; permalink?: string }> {
-  logger.info('threads', `텍스트 발행 시작 (${text.length}자)`);
+export async function publishTextPost(text: string, mediaUrl?: string): Promise<{ id: string; permalink?: string }> {
+  const label = mediaUrl ? `미디어(${inferMediaType(mediaUrl)})` : '텍스트';
+  logger.info('threads', `${label} 발행 시작 (${text.length}자)`);
 
-  const containerId = await createMediaContainer(text);
+  const containerId = await createMediaContainer(text, mediaUrl);
   const postId = await publishContainer(containerId);
   logger.info('threads', `발행 완료: postId=${postId}`);
 

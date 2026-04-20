@@ -104,11 +104,9 @@ export class NamiAgent extends BaseAgent {
           const notionUrl = await saveToKnowledgeBase({
             title: `[나미] 경쟁사 분석 — ${competitorData.title} — ${new Date().toLocaleDateString('ko-KR')}`,
             category: '경쟁사',
-            collector: 'nami',
             content: JSON.stringify(competitorData, null, 2),
             summary: `경쟁사 "${competitorData.title}" 의 키워드 ${competitorData.keywords.slice(0, 3).join(', ')} 분석`,
             sourceUrl: task.params.url,
-            reliability: '1차자료',
           });
 
           return {
