@@ -222,6 +222,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
         status: '초안',
         agentName: 'nami',
         hookCopy: pair.draftA.hookCopy,
+        referenceTitle: pair.draftA.refTitle,
       }),
       saveContentToNotion({
         title: pair.draftB.title,
@@ -230,6 +231,7 @@ export async function generateThreadsPost(userContext?: string): Promise<void> {
         status: '초안',
         agentName: 'nami',
         hookCopy: pair.draftB.hookCopy,
+        referenceTitle: pair.draftB.refTitle,
       }),
     ]);
 

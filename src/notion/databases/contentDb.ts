@@ -35,7 +35,7 @@ export interface ContentDbEntry {
   publishDate?: string; // 발행일 (ISO date 또는 datetime)
   publishUrl?: string; // 발행 URL
   hookCopy?: string; // 훅카피 (검토 시 빠른 훑기용)
-  targetPersonas?: string[]; // 타겟페르소나 (멀티 셀렉트)
+  referenceTitle?: string; // 토대가 된 레퍼런스 제목 (참조자료)
   mediaUrl?: string; // 이미지 또는 영상 URL (Threads 발행 시 첨부)
 }
 
@@ -69,10 +69,8 @@ export async function saveContentToNotion(entry: ContentDbEntry): Promise<string
     if (entry.hookCopy) {
       properties['훅카피'] = { rich_text: [{ text: { content: entry.hookCopy } }] };
     }
-    if (entry.targetPersonas && entry.targetPersonas.length > 0) {
-      properties['타겟페르소나'] = {
-        multi_select: entry.targetPersonas.map((name) => ({ name })),
-      };
+    if (entry.referenceTitle) {
+      properties['참조자료'] = { rich_text: [{ text: { content: entry.referenceTitle } }] };
     }
 
     const page = await notionClient.pages.create({
