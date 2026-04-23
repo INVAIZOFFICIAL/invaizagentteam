@@ -42,7 +42,10 @@ export type KnowledgeCategory =
   | '스레드 레퍼런스'
   | '인스타 레퍼런스'
   | '데이터통계'
-  | '툴리소스';
+  | '툴리소스'
+  | 'Qoo10'
+  | '역직구뉴스'
+  | '셀러인텐트';
 
 // 지식 베이스 DB 의 `상태` Select 값
 export type KnowledgeStatus = 'Inbox' | 'Raw' | '검증됨' | '활용됨' | '보관';
@@ -222,4 +225,40 @@ export async function queryRecentReferences(
     logger.error('knowledgeDb', '레퍼런스 조회 실패', error);
     return [];
   }
+}
+
+/**
+ * 특정 카테고리의 기존 원본URL Set 조회 — 크롤 중복 저장 방지용.
+ * 크롤러 실행 초반에 한 번 호출해서 Set에 담아두고, 저장 전 contains 체크.
+ */
+export async function queryExistingSourceUrls(
+  category: KnowledgeCategory,
+): Promise<Set<string>> {
+  if (!env.NOTION_KNOWLEDGE_DB_ID) return new Set();
+
+  const urls = new Set<string>();
+  let cursor: string | undefined;
+
+  try {
+    do {
+      const res = await notionClient.databases.query({
+        database_id: env.NOTION_KNOWLEDGE_DB_ID,
+        start_cursor: cursor,
+        page_size: 100,
+        filter: { property: '카테고리', select: { equals: category } },
+      });
+
+      for (const page of res.results) {
+        const p = page as NotionPageLike;
+        const url = p.properties?.['원본URL']?.url;
+        if (url) urls.add(url);
+      }
+
+      cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
+    } while (cursor);
+  } catch (error) {
+    logger.error('knowledgeDb', `기존 URL 조회 실패 (${category})`, error);
+  }
+
+  return urls;
 }

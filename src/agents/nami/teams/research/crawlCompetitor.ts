@@ -1,7 +1,7 @@
-import puppeteer, { type Browser } from 'puppeteer';
 import { logger } from '@/utils/logger.js';
 import { withRetry } from '@/utils/retry.js';
 import { nowIso } from '@/utils/timestamps.js';
+import { getBrowser } from '@/utils/browserPool.js';
 
 export interface CompetitorContent {
   url: string;
@@ -10,19 +10,6 @@ export interface CompetitorContent {
   keywords: string[];
   price?: string;
   crawledAt: string;
-}
-
-// 브라우저 풀 — 요청마다 새 인스턴스 생성 금지
-let browserInstance: Browser | null = null;
-
-async function getBrowser(): Promise<Browser> {
-  if (!browserInstance || !browserInstance.connected) {
-    browserInstance = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-  }
-  return browserInstance;
 }
 
 // robots.txt 확인 — 크롤링 허용 여부 체크
@@ -140,10 +127,4 @@ export async function crawlCompetitorProduct(url: string): Promise<CompetitorCon
   }, 'nami:crawl', { maxAttempts: 3, delayMs: 2000 });
 }
 
-// 브라우저 풀 종료 (프로세스 종료 시 호출)
-export async function closeBrowser(): Promise<void> {
-  if (browserInstance) {
-    await browserInstance.close();
-    browserInstance = null;
-  }
-}
+export { closeBrowser } from '@/utils/browserPool.js';

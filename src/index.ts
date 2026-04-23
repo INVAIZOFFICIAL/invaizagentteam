@@ -7,6 +7,7 @@ import { registerPublishContentJob } from '@/cron/jobs/publishContent.js';
 import { registerFetchThreadsCommentsJob } from '@/cron/jobs/fetchThreadsComments.js';
 import { registerFetchThreadsInsightsJob } from '@/cron/jobs/fetchThreadsInsights.js';
 import { registerWeeklyReportJob } from '@/cron/jobs/weeklyReport.js';
+import { registerZoroCollectJobs } from '@/cron/jobs/zoroCollect.js';
 import { logger } from '@/utils/logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -68,6 +69,7 @@ async function main(): Promise<void> {
   registerFetchThreadsCommentsJob();
   registerFetchThreadsInsightsJob();
   registerWeeklyReportJob();
+  registerZoroCollectJobs();
 
   // Discord 봇 시작
   await startDiscordBot();
