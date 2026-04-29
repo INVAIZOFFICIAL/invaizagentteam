@@ -29,12 +29,21 @@ function parseInlineBold(line: string): RichText[] {
 }
 
 // Markdown 텍스트를 Notion 블록 배열로 변환
-// 지원: # / ## / ### 헤딩, - / * 불릿, > 인용, --- 구분선, **bold** 인라인
+// 지원: # / ## / ### 헤딩, - / * 불릿, > 인용, --- 구분선, **bold** 인라인, ![alt](url) 이미지
 export function markdownToBlocks(markdown: string): BlockObjectRequest[] {
   const blocks: BlockObjectRequest[] = [];
   const lines = markdown.split('\n');
 
   for (const line of lines) {
+    const imgMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imgMatch) {
+      blocks.push({
+        object: 'block',
+        type: 'image',
+        image: { type: 'external', external: { url: imgMatch[2] } },
+      } as BlockObjectRequest);
+      continue;
+    }
     if (line.startsWith('# ')) {
       blocks.push({
         object: 'block',

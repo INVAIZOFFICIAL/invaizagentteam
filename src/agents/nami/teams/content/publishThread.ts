@@ -2,11 +2,12 @@
 //
 // 조건: 상태=발행대기 + 발행일≤now + 직전 발행과 3시간 이상 간격
 
+import { openSync, closeSync, unlinkSync, statSync } from 'node:fs';
 import type { TextChannel } from 'discord.js';
 import { discordClient } from '@/discord/bot.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/utils/logger.js';
-import { publishTextPost } from '@/threads/client.js';
+import { publishTextPost, publishReplies } from '@/threads/client.js';
 import {
   getPendingContents,
   updateContentPublishInfo,
@@ -16,16 +17,45 @@ import {
 const MIN_GAP_HOURS = 3;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 10_000;
+const LOCK_FILE = '/tmp/nami-publish.lock';
+const LOCK_STALE_MS = 30 * 60 * 1000; // 30분 이상 된 락은 stale로 간주
+
+function acquireLock(): boolean {
+  try {
+    // 30분 이상 된 stale 락이면 제거 후 재시도
+    try {
+      const stat = statSync(LOCK_FILE);
+      if (Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
+        unlinkSync(LOCK_FILE);
+        logger.warn('nami', 'stale 락 파일 제거 후 재시도');
+      } else {
+        return false; // 다른 프로세스가 발행 중
+      }
+    } catch {
+      // 파일 없으면 정상 — 계속 진행
+    }
+    // wx 플래그: 파일이 없을 때만 원자적으로 생성 (두 프로세스가 동시에 시도해도 하나만 성공)
+    const fd = openSync(LOCK_FILE, 'wx');
+    closeSync(fd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function releaseLock(): void {
+  try { unlinkSync(LOCK_FILE); } catch { /* 이미 없으면 무시 */ }
+}
 
 async function attemptPublish(
   content: string,
-  mediaUrl: string | undefined,
+  mediaUrls: string[],
   retries = MAX_RETRIES,
 ): Promise<{ id: string; permalink?: string }> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= retries + 1; attempt++) {
     try {
-      return await publishTextPost(content, mediaUrl);
+      return await publishTextPost(content, mediaUrls);
     } catch (err) {
       lastErr = err;
       if (attempt <= retries) {
@@ -55,6 +85,19 @@ function buildErrorReport(err: unknown): string {
 }
 
 export async function publishPendingThreads(): Promise<void> {
+  if (!acquireLock()) {
+    logger.info('nami', '발행 락 획득 실패 — 다른 프로세스가 발행 중, 스킵');
+    return;
+  }
+
+  try {
+    await _publishPendingThreads();
+  } finally {
+    releaseLock();
+  }
+}
+
+async function _publishPendingThreads(): Promise<void> {
   const pending = await getPendingContents();
   if (pending.length === 0) return;
 
@@ -78,26 +121,49 @@ export async function publishPendingThreads(): Promise<void> {
     const content = item.content;
     if (!content) {
       logger.warn('nami', `콘텐츠 속성 비어있음 — 스킵: ${item.title}`);
+      textChannel?.send(
+        `🍊 **발행 못 했어요.** 노션 **콘텐츠** 속성이 비어있어요.\n**${item.title}**\n콘텐츠 속성에 본문을 채워주시면 다음 발행 주기에 올려드릴게요.`,
+      );
       continue;
     }
 
     try {
-      logger.info('nami', `발행 시작: ${item.title}${item.mediaUrl ? ' (미디어 첨부)' : ''}`);
-      const result = await attemptPublish(content, item.mediaUrl);
+      const mediaCount = item.mediaUrls.length;
+      const mediaLabel = mediaCount === 0 ? '' : mediaCount === 1 ? ' (이미지 1장)' : ` (이미지 ${mediaCount}장)`;
+      logger.info('nami', `발행 시작: ${item.title}${mediaLabel}`);
+      const result = await attemptPublish(content, item.mediaUrls);
 
       const publishUrl = result.permalink ?? `https://www.threads.net/p/${result.id}`;
       await updateContentPublishInfo(item.pageId, publishUrl);
 
+      // 셀프 댓글 발행
+      if (item.replyContents.length > 0) {
+        try {
+          await publishReplies(result.id, item.replyContents);
+          logger.info('nami', `셀프 댓글 ${item.replyContents.length}건 발행: ${item.title}`);
+        } catch (replyErr) {
+          logger.warn('nami', `셀프 댓글 발행 실패 (본문은 올라감): ${item.title}`, replyErr);
+          textChannel?.send(
+            `🍊 본문은 올라갔는데 댓글 달기가 실패했어요.\n**${item.title}**\n📎 ${publishUrl}`,
+          );
+        }
+      }
+
       logger.info('nami', `발행 완료: ${item.title} → ${publishUrl}`);
-      textChannel?.send(`🍊 **발행 완료!** ${item.title}\n📎 ${publishUrl}`);
+      const imageNote = mediaCount === 0 ? '' : mediaCount === 1 ? ' 📸 이미지 1장' : ` 📸 이미지 ${mediaCount}장`;
+      const replyNote = item.replyContents.length > 0 ? ` 💬 댓글 ${item.replyContents.length}개` : '';
+      textChannel?.send(
+        `🍊 **스레드에 올라갔어요!**${imageNote}${replyNote}\n**${item.title}**\n📎 ${publishUrl}`,
+      );
     } catch (err) {
       logger.error('nami', `발행 실패 (재시도 ${MAX_RETRIES}회 소진): ${item.title}`, err);
       const report = buildErrorReport(err);
       textChannel?.send(
-        `🍊 **발행 실패** (${MAX_RETRIES}회 재시도 후 포기): **${item.title}**\n\`\`\`\n${report}\n\`\`\``,
+        `🍊 **발행 실패했어요.** (${MAX_RETRIES}회 재시도했는데 안 됐어요)\n**${item.title}**\n\n**실패 원인:**\n\`\`\`\n${report}\n\`\`\``,
       );
       // 중복 발행 방지를 위해 중단
       break;
     }
   }
 }
+

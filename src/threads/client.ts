@@ -140,15 +140,16 @@ async function threadsPost<T>(path: string, params: Record<string, string> = {})
   if (!token) throw new Error('THREADS_ACCESS_TOKEN이 설정되지 않았습니다.');
 
   const url = new URL(API_BASE + path);
-  url.searchParams.set('access_token', token);
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
-  }
+  const body = new URLSearchParams({ access_token: token, ...params });
 
-  const res = await fetch(url.toString(), { method: 'POST' });
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Threads API POST ${res.status} on ${path}: ${body}`);
+    const text = await res.text();
+    throw new Error(`Threads API POST ${res.status} on ${path}: ${text}`);
   }
   return (await res.json()) as T;
 }
@@ -159,6 +160,7 @@ function inferMediaType(url: string): 'IMAGE' | 'VIDEO' {
 
 async function waitForContainer(creationId: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  const timeoutLabel = `${Math.round(timeoutMs / 1000)}s`;
   while (Date.now() < deadline) {
     const res = await threadsGet<{ status: string; error_message?: string }>(
       `/${creationId}`,
@@ -168,32 +170,75 @@ async function waitForContainer(creationId: string, timeoutMs = 30_000): Promise
     if (res.status === 'ERROR') throw new Error(`미디어 컨테이너 오류: ${res.error_message ?? 'unknown'}`);
     await new Promise((r) => setTimeout(r, 3_000));
   }
-  throw new Error('미디어 컨테이너 준비 타임아웃 (30s)');
+  throw new Error(`미디어 컨테이너 준비 타임아웃 (${timeoutLabel})`);
+}
+
+/**
+ * 단일 미디어 컨테이너 생성
+ * is_carousel_item=true 이면 캐러셀 아이템용
+ */
+async function createSingleMediaContainer(
+  userId: string,
+  mediaUrl: string,
+  isCarouselItem = false,
+): Promise<string> {
+  const mediaType = inferMediaType(mediaUrl);
+  const params: Record<string, string> = { media_type: mediaType };
+  if (mediaType === 'IMAGE') params['image_url'] = mediaUrl;
+  else params['video_url'] = mediaUrl;
+  if (isCarouselItem) params['is_carousel_item'] = 'true';
+
+  const res = await threadsPost<{ id: string }>(`/${userId}/threads`, params);
+  // 동영상은 인코딩 시간이 필요 — 더 긴 타임아웃 적용
+  const timeout = mediaType === 'VIDEO' ? 180_000 : 30_000;
+  await waitForContainer(res.id, timeout);
+  return res.id;
 }
 
 /**
  * 미디어 컨테이너 생성 (발행 1단계)
- * mediaUrl 없으면 TEXT, 있으면 IMAGE/VIDEO 타입으로 생성
- * @returns creation_id
+ * - mediaUrls 없으면 TEXT
+ * - 1장이면 단일 IMAGE/VIDEO
+ * - 2장 이상이면 CAROUSEL (최대 10장)
  */
-export async function createMediaContainer(text: string, mediaUrl?: string): Promise<string> {
+export async function createMediaContainer(text: string, mediaUrls: string[] = []): Promise<string> {
   const userId = env.THREADS_USER_ID;
   if (!userId) throw new Error('THREADS_USER_ID가 설정되지 않았습니다.');
 
-  if (mediaUrl) {
-    const mediaType = inferMediaType(mediaUrl);
-    const params: Record<string, string> = { media_type: mediaType, text };
-    if (mediaType === 'IMAGE') params['image_url'] = mediaUrl;
-    else params['video_url'] = mediaUrl;
-    const res = await threadsPost<{ id: string }>(`/${userId}/threads`, params);
-    await waitForContainer(res.id);
+  if (mediaUrls.length === 0) {
+    const res = await threadsPost<{ id: string }>(`/${userId}/threads`, {
+      media_type: 'TEXT',
+      text,
+    });
     return res.id;
   }
 
+  if (mediaUrls.length === 1) {
+    const mediaType = inferMediaType(mediaUrls[0]);
+    const params: Record<string, string> = { media_type: mediaType, text };
+    if (mediaType === 'IMAGE') params['image_url'] = mediaUrls[0];
+    else params['video_url'] = mediaUrls[0];
+    const res = await threadsPost<{ id: string }>(`/${userId}/threads`, params);
+    // 동영상은 Threads 서버 인코딩에 최대 수 분 소요 — 이미지보다 긴 타임아웃 적용
+    const timeout = mediaType === 'VIDEO' ? 180_000 : 30_000;
+    await waitForContainer(res.id, timeout);
+    return res.id;
+  }
+
+  // 캐러셀: 이미지·동영상 혼합 가능, 최대 10개
+  const capped = mediaUrls.slice(0, 10);
+  const itemIds: string[] = [];
+  for (const url of capped) {
+    const id = await createSingleMediaContainer(userId, url, true);
+    itemIds.push(id);
+  }
+
   const res = await threadsPost<{ id: string }>(`/${userId}/threads`, {
-    media_type: 'TEXT',
+    media_type: 'CAROUSEL',
+    children: itemIds.join(','),
     text,
   });
+  await waitForContainer(res.id);
   return res.id;
 }
 
@@ -213,17 +258,20 @@ export async function publishContainer(containerId: string): Promise<string> {
 
 /**
  * 포스트 1건 발행 (컨테이너 생성 → 발행 → permalink 조회)
- * mediaUrl 있으면 이미지/영상 첨부
+ * mediaUrls 1장 = 단일 이미지, 2장 이상 = 캐러셀
  */
-export async function publishTextPost(text: string, mediaUrl?: string): Promise<{ id: string; permalink?: string }> {
-  const label = mediaUrl ? `미디어(${inferMediaType(mediaUrl)})` : '텍스트';
+export async function publishTextPost(text: string, mediaUrls: string[] = []): Promise<{ id: string; permalink?: string }> {
+  const label = mediaUrls.length === 0
+    ? '텍스트'
+    : mediaUrls.length === 1
+    ? `미디어(${inferMediaType(mediaUrls[0])})`
+    : `캐러셀(${mediaUrls.length}장)`;
   logger.info('threads', `${label} 발행 시작 (${text.length}자)`);
 
-  const containerId = await createMediaContainer(text, mediaUrl);
+  const containerId = await createMediaContainer(text, mediaUrls);
   const postId = await publishContainer(containerId);
   logger.info('threads', `발행 완료: postId=${postId}`);
 
-  // permalink 조회 (직후 조회이므로 최근 5건 안에 있음)
   try {
     const recent = await fetchMyRecentThreads(new Date(Date.now() - 120_000), 5);
     const match = recent.find((p) => p.id === postId);
@@ -231,6 +279,33 @@ export async function publishTextPost(text: string, mediaUrl?: string): Promise<
   } catch {
     return { id: postId };
   }
+}
+
+/**
+ * 본문 발행 후 셀프 댓글 순서대로 달기
+ * @param postId 본문 Threads 글 ID
+ * @param replies 댓글 텍스트 배열 (순서 유지)
+ */
+export async function publishReplies(postId: string, replies: string[]): Promise<void> {
+  const userId = env.THREADS_USER_ID;
+  if (!userId) throw new Error('THREADS_USER_ID가 설정되지 않았습니다.');
+
+  // 체인 구조: 첫 댓글은 본문에, 이후 댓글은 바로 앞 댓글에 달아 스레드 연결
+  let replyToId = postId;
+  for (const text of replies) {
+    const res = await threadsPost<{ id: string }>(`/${userId}/threads`, {
+      media_type: 'TEXT',
+      text,
+      reply_to_id: replyToId,
+    });
+    // reply_to_id 포함 컨테이너는 Meta 서버 처리 시간이 필요 — FINISHED 상태 확인 후 발행
+    await waitForContainer(res.id);
+    const publishedId = await publishContainer(res.id);
+    // 다음 댓글은 방금 발행한 댓글에 연결
+    replyToId = publishedId;
+    await new Promise((r) => setTimeout(r, 2_000));
+  }
+  logger.info('threads', `셀프 댓글 ${replies.length}건 발행 완료 (postId=${postId})`);
 }
 
 /**

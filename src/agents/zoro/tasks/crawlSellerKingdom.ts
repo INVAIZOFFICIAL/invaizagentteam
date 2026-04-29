@@ -14,8 +14,8 @@ const AGENT = 'zoro:sellerkingdom';
 const LISTING_URL =
   'https://sellerkingdom.com/korean-global-seller-blogs-l-sellerkingdom';
 const ORIGIN = 'https://sellerkingdom.com';
-// 기사 URL 패턴: /post/[slug]
-const ARTICLE_URL_RE = /href="(https?:\/\/(?:www\.)?sellerkingdom\.com\/post\/([a-z0-9][a-z0-9-]+))"/g;
+// 기사 URL 패턴: 절대경로(https://sellerkingdom.com/post/...) 또는 상대경로(/post/...)
+const ARTICLE_URL_RE = /href="((?:https?:\/\/(?:www\.)?sellerkingdom\.com)?\/post\/([a-z0-9][a-z0-9-]+))"/g;
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -46,7 +46,7 @@ async function fetchListing(): Promise<Array<{ url: string }>> {
   let m: RegExpExecArray | null;
 
   while ((m = ARTICLE_URL_RE.exec(html)) !== null) {
-    const url = m[1];
+    const url = m[1].startsWith('http') ? m[1] : `${ORIGIN}${m[1]}`;
     if (seen.has(url)) continue;
     seen.add(url);
     items.push({ url });
@@ -112,7 +112,7 @@ export async function collectSellerKingdomArticles(): Promise<CollectSummary> {
     await saveToKnowledgeBase({
       title: article.title,
       category: '셀러인텐트',
-      content: `## 핵심 인사이트 (한국어 요약)\n\n${r.summary}\n\n## 원문 발췌 (English)\n\n${article.content.slice(0, 500)}`,
+      content: `## 핵심 인사이트 (한국어 요약)\n\n${r.summary}\n\n## 원문 (English)\n\n${article.content}`,
       contentText: r.summary,
       sourceUrl: article.url,
       tags: [

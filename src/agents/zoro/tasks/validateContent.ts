@@ -30,7 +30,10 @@ const SYSTEM_PROMPT = `너는 역직구(한국 셀러가 Qoo10·Amazon·eBay 등
 관련 있는 주제: 해외 이커머스 트렌드, 플랫폼 정책/수수료 변화, 국제 물류·배송, 관세·세금, 소비자 동향,
 마케팅·광고 전략, 성공 사례, 시장 규제, 환율·결제, 상품 카테고리 동향.
 
-관련 없는 주제: 순수 국내 리테일 이슈, 무관한 산업, 광고·홍보성 글, 역직구와 관련 없는 일반 뉴스.
+판단 기준:
+- 역직구 전문 미디어(colosseum, ecnomikata 등 크로스보더 전문 사이트)에서 수집된 기사는 완전히 무관한 게 아닌 한 relevant=true 로 판단한다.
+- 국제 물류·배송·풀필먼트 정보도 역직구 셀러에게 직접 필요하므로 relevant=true.
+- 완전히 무관한 것만 relevant=false: 국내 오프라인 유통, 비-이커머스 산업, 순수 광고·홍보 글.
 
 중요: 요약은 반드시 **한국어**로 작성. 일본어·영어 원문도 한국어로 요약할 것.`;
 
@@ -49,6 +52,7 @@ export async function validateArticles(
       title: a.title,
       content: a.content.slice(0, 600),
       language: a.language,
+      source: a.source,
     }));
 
     const prompt = `아래 ${batch.length}개 기사를 역직구 셀러 관점에서 검토해줘.

@@ -471,7 +471,17 @@ async function saveReference(
   const title = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine;
   const contentText = buildContentText(post, selfReplies);
 
-  const body = `## 배울 점
+  const selfReplySection = selfReplies.length > 0
+    ? `\n\n---\n\n${selfReplies.join('\n\n---\n\n')}`
+    : '';
+
+  const body = `## 원문
+
+${post.text}${selfReplySection}
+
+---
+
+## 배울 점
 
 ${cls.learning || '(미분류)'}
 

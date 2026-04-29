@@ -6,5 +6,8 @@ export function nowIso(): string {
 }
 
 export function todayDateOnly(): string {
-  return new Date().toISOString().split('T')[0];
+  // KST(UTC+9) 기준 날짜 반환 — UTC 기준으로 반환하면 새벽 cron(05:00 KST = 20:00 UTC)이
+  // 전날 날짜로 인식되어 dedup 오작동 발생
+  const kstOffset = 9 * 60 * 60 * 1000;
+  return new Date(Date.now() + kstOffset).toISOString().split('T')[0];
 }

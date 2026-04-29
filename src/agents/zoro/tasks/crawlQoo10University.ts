@@ -12,8 +12,9 @@ import {
 import { validateArticles, type ArticleToValidate } from './validateContent.js';
 
 const AGENT = 'zoro:qoo10university';
-const SUCCESS_STORIES_URL = 'https://university.qoo10.jp/success-stories/';
-const ORIGIN = 'https://university.qoo10.jp';
+// 사례 목록 — university.qoo10.jp/success-stories/ 는 Hatena Blog로 리다이렉트
+const SUCCESS_STORIES_URL = 'https://article-university.qoo10.jp/archive/category/%E4%BA%8B%E4%BE%8B';
+const ORIGIN = 'https://article-university.qoo10.jp';
 
 interface StoryItem {
   title: string;
@@ -38,46 +39,27 @@ async function scrapeSuccessStories(): Promise<StoryItem[]> {
     const stories = await page.evaluate((): Array<{ title: string; url: string; excerpt: string }> => {
       const results: Array<{ title: string; url: string; excerpt: string }> = [];
 
-      // 성공사례 카드/링크 추출 — 다양한 셀렉터 시도
-      const selectors = [
-        'a[href*="success-stories/"]',
-        '.case_item a',
-        '.story_item a',
-        '[class*="case"] a',
-        '[class*="story"] a',
-        'article a',
-      ];
+      // Hatena Blog 구조 — section.archive-entry 안에 a.entry-title-link
+      document.querySelectorAll('section.archive-entry').forEach((section) => {
+        const titleLink = section.querySelector('a.entry-title-link') as HTMLAnchorElement | null;
+        if (!titleLink) return;
 
-      for (const sel of selectors) {
-        const els = document.querySelectorAll(sel);
-        if (els.length === 0) continue;
+        const url = titleLink.href;
+        const title = titleLink.textContent?.trim() ?? '';
+        const excerpt =
+          section.querySelector('p.entry-description')?.textContent?.trim() ?? '';
 
-        els.forEach((el) => {
-          const href = el.getAttribute('href');
-          if (!href || href === '/success-stories/' || href === '#') return;
-          const url = href.startsWith('http') ? href : `https://university.qoo10.jp${href}`;
-          const title =
-            el.querySelector('h2, h3, h4, .title, [class*="title"]')?.textContent?.trim() ??
-            el.textContent?.trim() ??
-            '';
-          const excerpt =
-            el.querySelector('p, .excerpt, .description, [class*="desc"]')?.textContent?.trim() ?? '';
-
-          if (title && url.includes('university.qoo10.jp')) {
-            results.push({ title, url, excerpt });
-          }
-        });
-
-        if (results.length > 0) break;
-      }
+        if (title && url.includes('article-university.qoo10.jp/entry/')) {
+          results.push({ title, url, excerpt });
+        }
+      });
 
       return results;
     });
 
     if (stories.length === 0) {
-      // 전체 페이지 텍스트 로깅 — 셀렉터 디버깅용
-      const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 1000));
-      logger.warn(AGENT, '성공사례 0건 — 셀렉터 확인 필요', { bodySnippet: bodyText });
+      const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 500));
+      logger.warn(AGENT, '성공사례 0건 — 페이지 구조 변경 가능성', { bodySnippet: bodyText });
     }
 
     logger.info(AGENT, `Qoo10大学 성공사례 ${stories.length}건 스크랩`);

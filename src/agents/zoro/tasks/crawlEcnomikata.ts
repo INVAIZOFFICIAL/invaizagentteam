@@ -145,7 +145,7 @@ export async function collectEcnomikataArticles(): Promise<CollectSummary> {
     await saveToKnowledgeBase({
       title: article.title,
       category: '역직구뉴스',
-      content: `## 핵심 인사이트 (한국어 요약)\n\n${r.summary}\n\n## 원문 발췌 (日本語)\n\n${article.content.slice(0, 500)}`,
+      content: `## 핵심 인사이트 (한국어 요약)\n\n${r.summary}\n\n## 원문 (日本語)\n\n${article.content}`,
       contentText: r.summary,
       sourceUrl: article.url,
       tags: [

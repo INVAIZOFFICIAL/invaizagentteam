@@ -45,7 +45,8 @@ export type KnowledgeCategory =
   | '툴리소스'
   | 'Qoo10'
   | '역직구뉴스'
-  | '셀러인텐트';
+  | '셀러인텐트'
+  | '오픈채팅방';
 
 // 지식 베이스 DB 의 `상태` Select 값
 export type KnowledgeStatus = 'Inbox' | 'Raw' | '검증됨' | '활용됨' | '보관';
@@ -257,7 +258,14 @@ export async function queryExistingSourceUrls(
       cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
     } while (cursor);
   } catch (error) {
-    logger.error('knowledgeDb', `기존 URL 조회 실패 (${category})`, error);
+    // 해당 카테고리로 저장된 항목이 아직 없으면 Notion이 "select option not found" 를 던짐.
+    // 첫 수집 실행이므로 빈 Set 반환으로 정상 진행.
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('not found for property')) {
+      logger.debug('knowledgeDb', `카테고리 '${category}' 첫 수집 — 기존 URL 없음으로 처리`);
+    } else {
+      logger.error('knowledgeDb', `기존 URL 조회 실패 (${category})`, error);
+    }
   }
 
   return urls;

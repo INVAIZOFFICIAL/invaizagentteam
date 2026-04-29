@@ -7,6 +7,7 @@
 //
 // 파이프라인: 스크랩 → Claude 관련성 검증 + 한국어 요약 → 노션 Inbox 저장
 
+import type { TextChannel } from 'discord.js';
 import { registerJob } from '@/cron/scheduler.js';
 import { CRON } from '@/cron/cronConfig.js';
 import { logger } from '@/utils/logger.js';
@@ -15,6 +16,14 @@ import { collectEcnomikataArticles } from '@/agents/zoro/tasks/crawlEcnomikata.j
 import { collectSellerKingdomArticles } from '@/agents/zoro/tasks/crawlSellerKingdom.js';
 import { collectQoo10UniversityStories } from '@/agents/zoro/tasks/crawlQoo10University.js';
 import { closeBrowser } from '@/utils/browserPool.js';
+import { collectKakaoOpenChatMessages } from '@/agents/zoro/tasks/crawlKakaoOpenChat.js';
+import { discordClient } from '@/discord/bot.js';
+import { env } from '@/config/env.js';
+
+async function getChannel(): Promise<TextChannel | null> {
+  const ch = await discordClient.channels.fetch(env.DISCORD_CHANNEL_NAMI).catch(() => null);
+  return ch?.isTextBased() ? (ch as TextChannel) : null;
+}
 
 export function registerZoroCollectJobs(): void {
   // Colosseum 마켓-트렌드 — 매일 03:30
@@ -24,6 +33,8 @@ export function registerZoroCollectJobs(): void {
     fn: async () => {
       const s = await collectColosseumArticles();
       logger.info('cron', `조로 Colosseum — 신규 ${s.scraped}, 통과 ${s.validated}, 저장 ${s.saved}`);
+      const ch = await getChannel();
+      ch?.send(`🍊 **Colosseum 수집 완료했어요.** 신규 ${s.scraped}건 → 저장 ${s.saved}건`);
     },
   });
 
@@ -34,6 +45,8 @@ export function registerZoroCollectJobs(): void {
     fn: async () => {
       const s = await collectEcnomikataArticles();
       logger.info('cron', `조로 ECのミカタ — 신규 ${s.scraped}, 통과 ${s.validated}, 저장 ${s.saved}`);
+      const ch = await getChannel();
+      ch?.send(`🍊 **ECのミカタ 수집 완료했어요.** 신규 ${s.scraped}건 → 저장 ${s.saved}건`);
     },
   });
 
@@ -44,6 +57,8 @@ export function registerZoroCollectJobs(): void {
     fn: async () => {
       const s = await collectSellerKingdomArticles();
       logger.info('cron', `조로 SellerKingdom — 신규 ${s.scraped}, 통과 ${s.validated}, 저장 ${s.saved}`);
+      const ch = await getChannel();
+      ch?.send(`🍊 **Seller Kingdom 수집 완료했어요.** 신규 ${s.scraped}건 → 저장 ${s.saved}건`);
     },
   });
 
@@ -55,11 +70,32 @@ export function registerZoroCollectJobs(): void {
       try {
         const s = await collectQoo10UniversityStories();
         logger.info('cron', `조로 Qoo10大学 — 스크랩 ${s.scraped}, 통과 ${s.validated}, 저장 ${s.saved}`);
+        const ch = await getChannel();
+        ch?.send(`🍊 **Qoo10大学 수집 완료했어요.** 신규 ${s.scraped}건 → 저장 ${s.saved}건`);
       } finally {
         await closeBrowser();
       }
     },
   });
 
-  logger.info('cron', '조로 수집 파이프라인 등록 완료 (03:30·03:45·04:30·일요일 03:30)');
+  // 카카오 오픈채팅 역직구·셀러 방 — 매일 05:00
+  registerJob({
+    name: '조로:카카오오픈채팅-수집',
+    schedule: CRON.DAILY_05,
+    fn: async () => {
+      const s = await collectKakaoOpenChatMessages();
+      logger.info('cron', `조로 카카오오픈채팅 — 메시지 ${s.scraped}, 통과 ${s.validated}, 저장 ${s.saved}`);
+      const ch = await getChannel();
+      if (s.saved > 0) {
+        const failNote = s.failedRooms > 0 ? ` (${s.failedRooms}개 방 접근 불가)` : '';
+        ch?.send(`🍊 **카카오 오픈채팅 수집 완료했어요!**${failNote}\n메시지 ${s.scraped}건 → 저장 ${s.saved}건`);
+      } else if (s.failedRooms > 0) {
+        ch?.send(`🍊 **카카오 오픈채팅 수집 실패했어요.** ${s.failedRooms}개 방에 접근이 안 됐어요. 카카오톡 DB가 잠겨있는 것 같아요.`);
+      } else {
+        ch?.send(`🍊 **카카오 오픈채팅 수집 완료했어요.** 오늘은 새로 저장할 내용이 없어요.`);
+      }
+    },
+  });
+
+  logger.info('cron', '조로 수집 파이프라인 등록 완료 (03:30·03:45·04:30·05:00·일요일 03:30)');
 }

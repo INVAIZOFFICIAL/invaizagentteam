@@ -189,8 +189,9 @@ export interface PendingContent {
   pageId: string;
   title: string;
   publishDate: string; // ISO datetime
-  content?: string;    // 콘텐츠 속성값 (발행 본문)
-  mediaUrl?: string;   // 이미지/영상 URL
+  content?: string;       // 콘텐츠 속성값 (발행 본문)
+  replyContents: string[]; // 댓글 작성 속성값 — '---' 기준 분리
+  mediaUrls: string[];    // 이미지/영상 URL 목록 (복수 지원 — 2장 이상이면 캐러셀)
 }
 
 /**
@@ -224,17 +225,26 @@ export async function getPendingContents(): Promise<PendingContent[]> {
         const content = (contentArr as { plain_text: string }[])
           .map((t) => t.plain_text)
           .join('');
+        const replyRaw = (props['댓글 작성']?.rich_text as { plain_text: string }[] ?? [])
+          .map((t) => t.plain_text)
+          .join('');
+        const replyContents = replyRaw
+          .split(/\n---\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
         const imageFiles: { file?: { url: string }; external?: { url: string } }[] =
           props['이미지']?.files ?? [];
-        const mediaUrl: string | undefined =
-          imageFiles[0]?.file?.url ?? imageFiles[0]?.external?.url ?? undefined;
+        const mediaUrls: string[] = imageFiles
+          .map((f) => f.file?.url ?? f.external?.url ?? '')
+          .filter(Boolean);
         if (!publishDate) return null;
         return {
           pageId: page.id,
           title: titleProp?.title[0]?.plain_text ?? '',
           publishDate,
           content: content || undefined,
-          mediaUrl,
+          replyContents,
+          mediaUrls,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);

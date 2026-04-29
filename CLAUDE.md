@@ -5,6 +5,9 @@
 원피스 캐릭터 인격을 가진 6명의 AI 에이전트(루피·나미·조로·우솝·상디·초퍼)가 디스코드를 인터페이스로, 노션을 결과 저장소로 삼아 INVAIZ DayZero의 마케팅·리서치·개발지원 업무를 24/7 자동화하는 멀티 에이전트 시스템이다.
 Claude Code + cron이 실제 업무 수행 엔진이며, 각 에이전트는 고유한 캐릭터 인격과 의사결정 패턴을 가진다.
 
+**현재 구현 완료:** 나미(콘텐츠 자동화), 상디(시장 인텔리전스 기본)
+**미구현 예정:** 루피, 조로, 우솝, 초퍼
+
 ---
 
 ## 2. 기술 스택 & 빌드 명령어
@@ -18,9 +21,10 @@ Claude Code + cron이 실제 업무 수행 엔진이며, 각 에이전트는 고
 | 패키지 매니저 | npm |
 | 디스코드 봇 | discord.js v14 |
 | 웹 스크래핑 | Puppeteer, Playwright |
-| 노션 연동 | Notion MCP / `@notionhq/client` |
-| 스케줄링 | node-cron (맥북 개발) / macOS crontab (맥미니 24/7) |
-| 이메일 | SendGrid (`@sendgrid/mail`) 또는 Mailgun |
+| 노션 연동 | `@notionhq/client` |
+| Threads 연동 | Meta Graph API (장기 액세스 토큰, `src/threads/client.ts`) |
+| 스케줄링 | node-cron + macOS launchd (`scripts/launchd/`) |
+| 이메일 | SendGrid (`@sendgrid/mail`) |
 | 타입 검사 | TypeScript 5.x |
 | 코드 품질 | ESLint + Prettier |
 | 버전 관리 | Git (GitHub) |
@@ -35,12 +39,12 @@ npm install
 npm run dev
 
 # 특정 에이전트만 실행
-npm run dev:luffy        # 루피 (대장)
+npm run dev:luffy        # 루피 (대장) — 미구현
 npm run dev:nami         # 나미 (콘텐츠)
-npm run dev:zoro         # 조로 (리드수집)
-npm run dev:usopp        # 우솝 (DOM분석)
+npm run dev:zoro         # 조로 (리드수집) — 미구현
+npm run dev:usopp        # 우솝 (DOM분석) — 미구현
 npm run dev:sanji        # 상디 (시장정보)
-npm run dev:chopper      # 초퍼 (리서치)
+npm run dev:chopper      # 초퍼 (리서치) — 미구현
 
 # 프로덕션 빌드
 npm run build
@@ -85,16 +89,13 @@ npm run test:discord
 │   │   │   ├── BaseAgent.ts       # 모든 에이전트 공통 추상 클래스
 │   │   │   ├── AgentPersonality.ts # 캐릭터 인격 인터페이스
 │   │   │   └── AgentMemory.ts     # 에이전트 컨텍스트/메모리 관리
-│   │   ├── luffy/
-│   │   │   ├── LuffyAgent.ts      # 대장 — 팀 얼라인먼트 & 중재
-│   │   │   └── luffy.personality.ts
 │   │   ├── nami/
 │   │   │   ├── NamiAgent.ts         # 콘텐츠 팀장 (Orchestrator — 판단·배분)
 │   │   │   ├── nami.personality.ts
 │   │   │   ├── seedAccounts.ts      # Threads 시드 계정 목록
 │   │   │   └── teams/
 │   │   │       ├── research/        # 레퍼런스 수집팀
-│   │   │       │   ├── collectReferences.ts    # 시드 계정 크롤링 → Notion 저장
+│   │   │       │   ├── collectReferences.ts    # 시드 계정 크롤링 → 지식 베이스 DB 저장
 │   │   │       │   ├── curateMorningReport.ts  # TOP 10 큐레이션
 │   │   │       │   ├── deliverMorningReport.ts # Discord 모닝 리포트 전송
 │   │   │       │   └── crawlCompetitor.ts      # 경쟁사 URL 분석
@@ -102,45 +103,22 @@ npm run test:discord
 │   │   │       │   ├── generateThreadsPost.ts  # 스레드 초안 2건 생성
 │   │   │       │   ├── submitForApproval.ts    # Discord 검수 요청 & 승인 처리
 │   │   │       │   ├── publishThread.ts        # 승인된 초안 Threads 자동 발행
-│   │   │       │   └── generateBlogPost.ts     # [예정] Framer 블로그 초안 생성
+│   │   │       │   └── generateQoo10Content.ts # [레거시/TODO] Qoo10 콘텐츠 생성
 │   │   │       └── analytics/       # 성과 분석팀
 │   │   │           ├── analyzePerformance.ts   # 성과 지표 해석
 │   │   │           └── generateWeeklyReport.ts # 주간 리포트 생성
-│   │   ├── zoro/
-│   │   │   ├── ZoroAgent.ts       # 리드 수집 팀장
-│   │   │   ├── zoro.personality.ts
-│   │   │   └── tasks/
-│   │   │       ├── crawlLeads.ts
-│   │   │       ├── scoreLeads.ts
-│   │   │       └── sendColdEmail.ts
-│   │   ├── usopp/
-│   │   │   ├── UsoppAgent.ts      # DOM 분석 팀장
-│   │   │   ├── usopp.personality.ts
-│   │   │   └── tasks/
-│   │   │       ├── analyzeDom.ts
-│   │   │       ├── generateSpec.ts
-│   │   │       └── monitorDomChanges.ts
-│   │   ├── sanji/
-│   │   │   ├── SanjiAgent.ts      # 시장 정보 팀장
-│   │   │   ├── sanji.personality.ts
-│   │   │   └── tasks/
-│   │   │       ├── crawlMarket.ts
-│   │   │       ├── trackCompetitors.ts
-│   │   │       └── sendBriefing.ts
-│   │   └── chopper/
-│   │       ├── ChopperAgent.ts    # 리서치 팀장
-│   │       ├── chopper.personality.ts
+│   │   └── sanji/
+│   │       ├── SanjiAgent.ts      # 시장 정보 팀장
+│   │       ├── sanji.personality.ts
 │   │       └── tasks/
-│   │           ├── designUtScenario.ts
-│   │           ├── clusterNuggets.ts
-│   │           └── generateRevision.ts
+│   │           ├── crawlMarket.ts
+│   │           ├── trackCompetitors.ts
+│   │           └── sendBriefing.ts
 │   │
 │   ├── discord/                   # 디스코드 연동 레이어
 │   │   ├── bot.ts                 # Discord 클라이언트 초기화
 │   │   ├── handlers/
-│   │   │   ├── messageHandler.ts  # 메시지 라우팅 → 에이전트 디스패치
-│   │   │   ├── interactionHandler.ts
-│   │   │   └── dmHandler.ts       # 1:1 DM 처리
+│   │   │   └── messageHandler.ts  # 메시지 라우팅 → 에이전트 디스패치
 │   │   ├── channels/
 │   │   │   └── channelRouter.ts   # 채널 ID → 에이전트 매핑
 │   │   └── formatters/
@@ -149,69 +127,83 @@ npm run test:discord
 │   ├── notion/                    # 노션 연동 레이어
 │   │   ├── client.ts              # Notion API 클라이언트
 │   │   ├── databases/
-│   │   │   ├── leadDb.ts          # 리드 DB CRUD
-│   │   │   ├── contentDb.ts       # 콘텐츠 DB CRUD
-│   │   │   ├── researchDb.ts      # 리서치 DB CRUD
-│   │   │   └── domSpecDb.ts       # DOM 스펙 DB CRUD
+│   │   │   ├── contentDb.ts       # 콘텐츠 DB CRUD (초안·발행 상태 관리)
+│   │   │   ├── knowledgeDb.ts     # 레퍼런스 지식 베이스 DB CRUD
+│   │   │   ├── commentDb.ts       # Threads 댓글 DB CRUD
+│   │   │   ├── performanceDb.ts   # 성과 지표(마일스톤) DB CRUD
+│   │   │   ├── systemMetaDb.ts    # cron job 상태·실행 이력 DB CRUD
+│   │   │   └── weeklyReportDb.ts  # 주간 리포트 DB CRUD
 │   │   └── pages/
 │   │       ├── pageBuilder.ts     # 노션 페이지 블록 빌더
 │   │       └── reportUploader.ts  # 보고서 자동 업로드
 │   │
+│   ├── threads/                   # Threads(Meta) API 연동 레이어
+│   │   └── client.ts              # Meta Graph API 경량 래퍼 (글 목록·댓글·성과 지표)
+│   │
 │   ├── cron/                      # cron 스케줄링
-│   │   ├── scheduler.ts           # cron 작업 등록 & 관리
+│   │   ├── scheduler.ts           # cron 작업 등록 & 관리 (lock·production 체크)
 │   │   ├── jobs/
-│   │   │   ├── dailyBriefing.ts   # 상디 일일 브리핑 (매일 09:00)
-│   │   │   ├── weeklyAlignment.ts # 루피 주간 얼라인먼트 (매주 월 09:00)
-│   │   │   ├── leadCrawl.ts       # 조로 리드 수집 (매일 06:00)
-│   │   │   ├── contentGenerate.ts # 나미 콘텐츠 생성 (매일 10:00)
-│   │   │   └── domMonitor.ts      # 우솝 DOM 변동 감지 (매시간)
+│   │   │   ├── namiReferences.ts  # 레퍼런스 수집 3종 (03:00·06:00·07:00)
+│   │   │   ├── contentGenerate.ts # 나미 초안 자동 생성 (매일 04:00)
+│   │   │   ├── publishContent.ts  # 승인된 초안 자동 발행 (10분마다)
+│   │   │   ├── fetchThreadsComments.ts  # Threads 댓글 증분 수집 (6시간마다)
+│   │   │   ├── fetchThreadsInsights.ts  # 성과 지표 마일스톤 수집 (매일 14:00)
+│   │   │   ├── weeklyReport.ts    # 주간 성과 리포트 (매주 월 09:00)
+│   │   │   └── dailyBriefing.ts   # 상디 일일 브리핑 (매일 09:00) — 상디 등록 시 활성화
 │   │   └── cronConfig.ts          # cron 표현식 상수 관리
 │   │
 │   ├── claude/                    # Claude Code CLI 실행 래퍼
-│   │   ├── client.ts              # `claude` CLI spawn (runClaude 함수)
-│   │   └── promptBuilder.ts       # 시스템 프롬프트 빌더
-│   │
-│   ├── scrapers/                  # 크롤링 공통 유틸
-│   │   ├── puppeteerScraper.ts
-│   │   ├── playwrightScraper.ts
-│   │   └── domExtractor.ts
+│   │   └── client.ts              # `claude` CLI spawn (runClaude 함수)
 │   │
 │   ├── config/
-│   │   ├── agents.config.ts       # 에이전트별 설정 (채널 ID 등)
-│   │   ├── discord.config.ts
-│   │   ├── notion.config.ts
 │   │   └── env.ts                 # 환경변수 파싱 & 검증 (zod)
 │   │
 │   ├── types/
 │   │   ├── agent.types.ts
 │   │   ├── discord.types.ts
-│   │   ├── notion.types.ts
-│   │   └── task.types.ts
+│   │   └── notion.types.ts
 │   │
-│   └── utils/
-│       ├── logger.ts              # 구조화 로깅
-│       ├── retry.ts               # API 재시도 유틸
-│       └── rateLimit.ts           # API 호출 레이트 리미터
-│
-├── tests/
-│   ├── agents/                    # 에이전트 단위 테스트
-│   ├── discord/
-│   ├── notion/
-│   └── fixtures/                  # 테스트용 목 데이터
+│   ├── utils/
+│   │   ├── logger.ts              # 구조화 로깅
+│   │   ├── retry.ts               # API 재시도 유틸
+│   │   ├── rateLimit.ts           # API 호출 레이트 리미터
+│   │   ├── jsonExtraction.ts      # Claude CLI 출력 JSON 파싱 유틸
+│   │   └── timestamps.ts          # 날짜/시간 유틸
+│   │
+│   └── index.ts                   # 메인 진입점 — 에이전트 등록 & cron 등록 & Discord 봇 시작
 │
 ├── scripts/
-│   ├── setup-discord.ts           # 채널/권한 초기 설정
 │   ├── setup-notion.ts            # DB 스키마 초기 생성
-│   └── test-agents.ts             # 에이전트 연결 상태 점검
+│   ├── setup-threads-session.ts   # Threads 세션/토큰 초기 설정
+│   ├── test-agents.ts             # 에이전트 연결 상태 점검
+│   ├── test-collect-one.ts        # 레퍼런스 단건 수집 테스트
+│   ├── run-fetch-comments.ts      # 댓글 수집 단발 실행
+│   ├── dry-run-nami-pipeline.ts   # 나미 파이프라인 드라이런
+│   ├── inspect-notion.ts          # 노션 DB 상태 조회
+│   ├── verify-notion-state.ts     # 노션 상태 검증
+│   ├── verify-knowledge-db.ts     # 지식 베이스 DB 검증
+│   ├── verify-reference-body.ts   # 레퍼런스 본문 검증
+│   ├── backfill-images.ts         # 이미지 백필
+│   ├── backfill-references.ts     # 레퍼런스 백필
+│   ├── backfill-rescrape.ts       # 재크롤 백필
+│   ├── fix-meta-schedule.ts       # 메타 스케줄 수정
+│   ├── probe-threads-arialabels.ts # Threads UI aria-label 탐색
+│   ├── probe-threads-profile.ts   # Threads 프로필 탐색
+│   └── launchd/
+│       └── com.invaiz.luffy-squad.plist  # macOS launchd 서비스 설정
 │
 ├── docs/
-│   ├── agents/                    # 각 에이전트 상세 명세
-│   └── workflows/                 # 업무 플로우 다이어그램
+│   ├── agents/                    # 각 에이전트 상세 명세 (luffy·nami·sanji·usopp·zoro·chopper·README)
+│   ├── prompts/                   # 프롬프트 설계 문서
+│   ├── notion-schema.md           # 노션 DB 스키마 정의
+│   ├── content-strategy-setup-prompt.md
+│   ├── reference-crawling-prompt.md
+│   ├── DayZero B2C 솔루션 설명.md
+│   └── 참고용 - 자동화 API 문서.md
 │
 ├── .env.example
 ├── .env.local                     # 로컬 개발용 (Git 제외)
-├── .eslintrc.json
-├── .prettierrc
+├── eslint.config.js
 ├── tsconfig.json
 ├── package.json
 └── CLAUDE.md
@@ -224,8 +216,8 @@ npm run test:discord
 ### 파일 & 클래스 네이밍
 
 ```
-에이전트 클래스:    PascalCase  → NamiAgent.ts, ZoroAgent.ts
-태스크 함수:        camelCase   → crawlCompetitor.ts, scoreLeads.ts
+에이전트 클래스:    PascalCase  → NamiAgent.ts, SanjiAgent.ts
+태스크 함수:        camelCase   → crawlCompetitor.ts, publishThread.ts
 인격 파일:          kebab-case  → nami.personality.ts
 타입 파일:          camelCase   → agent.types.ts
 상수 파일:          camelCase   → cronConfig.ts
@@ -283,19 +275,19 @@ const filteredLeads = await scoreLeads(rawLeads);
 
 ```typescript
 // 1. Node.js 내장 모듈
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 
 // 2. 외부 패키지
 import { Client, GatewayIntentBits } from 'discord.js';
 import { Client as NotionClient } from '@notionhq/client';
 
 // 3. 내부 모듈 — 절대 경로 사용 (tsconfig paths 설정)
-import { BaseAgent } from '@/agents/base/BaseAgent';
-import { notionClient } from '@/notion/client';
+import { BaseAgent } from '@/agents/base/BaseAgent.js';
+import { notionClient } from '@/notion/client.js';
 
 // 4. 타입 import
-import type { AgentPersonality } from '@/types/agent.types';
+import type { AgentPersonality } from '@/types/agent.types.js';
 ```
 
 ### 환경변수 접근 패턴
@@ -306,7 +298,7 @@ import type { AgentPersonality } from '@/types/agent.types';
 const token = process.env.DISCORD_TOKEN;
 
 // 좋은 예 (zod로 검증된 타입 안전 접근)
-import { env } from '@/config/env';
+import { env } from '@/config/env.js';
 const token = env.DISCORD_TOKEN;
 ```
 
@@ -328,13 +320,13 @@ const token = env.DISCORD_TOKEN;
 ### 스프린트 단위 작업 흐름
 
 ```
-Sprint 0 — 아키텍처 결정 & 프로젝트 셋업
-Sprint 1 — 에이전트 코어 시스템 (BaseAgent, Discord, Notion 공통 인프라)
-Sprint 2 — 나미(콘텐츠 자동화) + 상디(시장 인텔리전스)
-Sprint 3 — 조로(리드 수집 & 세일즈 자동화)
-Sprint 4 — 우솝(DOM 분석 & 개발지원)
-Sprint 5 — 초퍼(사용자 리서치 & UT 자동화)
-Sprint 6 — 통합 QA, 운영 자동화 & 안정화
+Sprint 0 — 아키텍처 결정 & 프로젝트 셋업                    ✅ 완료
+Sprint 1 — 에이전트 코어 시스템 (BaseAgent, Discord, Notion) ✅ 완료
+Sprint 2 — 나미(콘텐츠 자동화) + 상디(시장 인텔리전스)       ✅ 나미 완료 / 상디 기본 구현
+Sprint 3 — 조로(리드 수집 & 세일즈 자동화)                   🔲 예정
+Sprint 4 — 우솝(DOM 분석 & 개발지원)                         🔲 예정
+Sprint 5 — 초퍼(사용자 리서치 & UT 자동화)                   🔲 예정
+Sprint 6 — 통합 QA, 운영 자동화 & 안정화                     🔲 예정
 ```
 
 ---
@@ -349,7 +341,7 @@ Sprint 6 — 통합 QA, 운영 자동화 & 안정화
 
 ```typescript
 // src/claude/client.ts 의 runClaude()를 사용한다 — API 키/SDK 호출 금지
-import { runClaude } from '@/claude/client';
+import { runClaude } from '@/claude/client.js';
 
 const output = await runClaude(userPrompt, this.name, {
   systemPrompt: this.personality.systemPrompt,
@@ -388,58 +380,51 @@ const CHANNEL_AGENT_MAP: Record<string, AgentName> = {
 ```typescript
 // pageBuilder.ts 사용 예시
 await notionClient.pages.create({
-  parent: { database_id: env.NOTION_DOM_SPEC_DB_ID },
+  parent: { database_id: env.NOTION_CONTENT_DB_ID },
   properties: {
-    이름: { title: [{ text: { content: `[우솝] ${url} DOM 분석 — ${today}` } }] },
-    상태: { select: { name: '완료' } },
-    URL: { url },
+    제목: { title: [{ text: { content: `[나미] 스레드 초안 — ${today}` } }] },
+    상태: { select: { name: '검수대기' } },
   },
-  children: pageBuilder.fromMarkdown(specMarkdown),
+  children: pageBuilder.fromMarkdown(draftMarkdown),
 });
 ```
 
 ### 4. cron 스케줄 관리
 
-`node-cron`으로 등록하되 모든 cron 표현식은 `cronConfig.ts`에 상수로 분리한다. 작업 시작/완료를 Discord 채널에 자동 알림한다.
+`node-cron`으로 등록하되 모든 cron 표현식은 `cronConfig.ts`에 상수로 분리한다.
 
 ```typescript
-// cronConfig.ts
+// cronConfig.ts — 실제 정의된 상수 전체
 export const CRON = {
-  DAILY_09:        '0 9 * * *',
-  DAILY_06:        '0 6 * * *',
-  WEEKLY_MON_09:   '0 9 * * 1',
-  HOURLY:          '0 * * * *',
+  HOURLY:         '0 * * * *',
+  DAILY_03:       '0 3 * * *',
+  DAILY_04:       '0 4 * * *',
+  DAILY_06:       '0 6 * * *',
+  DAILY_07:       '0 7 * * *',
+  DAILY_09:       '0 9 * * *',
+  DAILY_10:       '0 10 * * *',
+  DAILY_14:       '0 14 * * *',
+  WEEKLY_MON_09:  '0 9 * * 1',
+  EVERY_6H:       '0 */6 * * *',
+  EVERY_10MIN:    '*/10 * * * *',
 } as const;
-
-// scheduler.ts
-cron.schedule(CRON.DAILY_09, async () => {
-  await sanjiAgent.runDailyBriefing();
-});
 ```
 
-### 5. 우솝 DOM 분석 (Puppeteer)
+현재 등록된 cron 작업 목록:
 
-RPA 개발팀에 전달할 스펙 문서를 자동 생성한다. CSS 셀렉터, XPath, iframe 여부, 동적 렌더링 여부를 반드시 포함한다.
+| job 이름 | 스케줄 | 파일 |
+|---|---|---|
+| 나미:레퍼런스-수집 | 매일 03:00 | `namiReferences.ts` |
+| 나미:초안생성 | 매일 04:00 | `contentGenerate.ts` |
+| 나미:큐레이션 | 매일 06:00 | `namiReferences.ts` |
+| 나미:리포트-배달 | 매일 07:00 | `namiReferences.ts` |
+| 상디:일일브리핑 | 매일 09:00 | `dailyBriefing.ts` |
+| 나미:스레드성과수집 | 매일 14:00 | `fetchThreadsInsights.ts` |
+| 나미:스레드댓글수집 | 6시간마다 | `fetchThreadsComments.ts` |
+| 나미:콘텐츠발행 | 10분마다 | `publishContent.ts` |
+| 나미:주간성과리포트 | 매주 월 09:00 | `weeklyReport.ts` |
 
-```typescript
-// analyzeDom.ts 핵심 추출 항목
-interface DomSpec {
-  url: string;
-  title: string;
-  targetElements: {
-    label: string;       // 예: "장바구니 버튼"
-    cssSelector: string;
-    xpath: string;
-    isInsideIframe: boolean;
-    isDynamic: boolean;  // JS 렌더링 필요 여부
-    notes: string;       // 우솝 특이사항 메모
-  }[];
-  screenshotBase64: string;
-  analyzedAt: string;
-}
-```
-
-### 6. 나미 팀 내 라우팅 룰
+### 5. 나미 팀 내 라우팅 룰
 
 > `NamiAgent.parseTask()`의 현재 구현을 문서화한 것. 코드 변경 시 반드시 여기도 동기화.
 
@@ -447,8 +432,9 @@ Discord 메시지 키워드 → 담당 팀 파일 매핑:
 
 | 키워드 패턴 | 액션 | 담당 파일 |
 |---|---|---|
+| "취소/아니/됐어/필요없어/괜찮아/그만" (단독) | `noop` | 즉시 종료 (Claude 호출 없음) |
 | "@handle 수집" / "레퍼런스 수집" + 실행 동사 | `collect_references` | `teams/research/collectReferences.ts` |
-| "피드/트렌딩/잘되는/인기/핫한" + 수집 동사 | `collect_feed` | `teams/research/collectReferences.ts` |
+| "피드/트렌딩/잘되는/인기/핫한/뜨는" + 수집 동사 | `collect_feed` | `teams/research/collectReferences.ts` |
 | "경쟁사/크롤/벤치" + URL 포함 | `crawl_competitor` | `teams/research/crawlCompetitor.ts` |
 | "초안" + 실행 동사 | `generate_threads_post` | `teams/content/generateThreadsPost.ts` |
 | "주간리포트/리포트" + 실행 동사 | `weekly_report` | `teams/analytics/generateWeeklyReport.ts` |
@@ -456,6 +442,8 @@ Discord 메시지 키워드 → 담당 팀 파일 매핑:
 | "인사이트/지표 수집" + 수집 동사 | `fetch_insights` | `cron/jobs/fetchThreadsInsights.ts` |
 | "성과/지표/ctr" + 실행 동사 | `analyze_performance` | `teams/analytics/analyzePerformance.ts` |
 | 그 외 | `ask_claude` | NamiAgent 자연 대화 처리 |
+
+> 우선순위: `noop` → `collect_references`(핸들) → `generate_threads_post` → `collect_feed` → `collect_references`(키워드) → `crawl_competitor` → `weekly_report` → `fetch_comments` → `fetch_insights` → `analyze_performance` → `ask_claude`
 
 ---
 
@@ -468,6 +456,7 @@ Discord 메시지 키워드 → 담당 팀 파일 매핑:
 금지: .env 파일 Git 커밋 → .gitignore에 .env.local 반드시 포함
 금지: ANTHROPIC_API_KEY 사용 — 이 프로젝트는 Claude Code CLI(Max 구독)로만 실행한다
 금지: 크롤링 결과(리드 개인정보)를 로컬 파일에 평문 저장
+금지: Threads 액세스 토큰을 코드에 하드코딩 — 반드시 env.THREADS_ACCESS_TOKEN 경유
 ```
 
 ### 에이전트 인격 일관성
@@ -493,7 +482,7 @@ Discord 메시지 키워드 → 담당 팀 파일 매핑:
 
 ```
 금지: cron 작업 중복 실행 방지 로직 없이 배포
-       → 각 job에 실행 중 플래그(lock) 구현
+       → scheduler.ts의 registerJob()이 lock을 자동 처리 — 직접 cron.schedule() 호출 금지
 금지: cron 실패 시 무음 처리 — 반드시 Discord 에러 채널에 알림
 금지: 맥북/맥미니 양쪽에서 동일 cron 동시 실행
        → 운영 환경(맥미니)에서만 cron 활성화 (NODE_ENV=production 체크)
@@ -511,7 +500,7 @@ Discord 메시지 키워드 → 담당 팀 파일 매핑:
 금지: systemPrompt를 매 호출마다 다르게 조립 (CLI 내부 캐시 미적중)
        → 같은 에이전트는 같은 인격 문자열을 재사용
 금지: 에이전트 응답을 기다리는 동안 Discord 응답 없음 처리 누락
-       → 장시간 작업은 "지금 분석 중이야..." 중간 메시지 먼저 전송
+       → 장시간 작업은 "지금 분석 중이에요..." 중간 메시지 먼저 전송
 ```
 
 ---
@@ -539,7 +528,7 @@ Discord 메시지 키워드 → 담당 팀 파일 매핑:
 ### cron 작업 요건
 
 - [ ] 지정 시각에 자동 실행 확인 (맥미니 환경)
-- [ ] 중복 실행 방지 lock 동작 확인
+- [ ] 중복 실행 방지 lock 동작 확인 (`registerJob()` 경유 확인)
 - [ ] 실패 시 Discord 에러 채널 알림 확인
 - [ ] `NODE_ENV=production`에서만 활성화 확인
 

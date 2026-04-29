@@ -1,3 +1,4 @@
+import type { TextChannel } from 'discord.js';
 import { registerJob } from '@/cron/scheduler.js';
 import { CRON } from '@/cron/cronConfig.js';
 import { logger } from '@/utils/logger.js';
@@ -5,6 +6,8 @@ import { fetchMyRecentThreads, fetchPostInsights } from '@/threads/client.js';
 import { findContentPageByUrl } from '@/notion/databases/contentDb.js';
 import { savePerformanceSnapshot, milestoneExists } from '@/notion/databases/performanceDb.js';
 import { getJobState, updateJobState, type JobResult } from '@/notion/databases/systemMetaDb.js';
+import { discordClient } from '@/discord/bot.js';
+import { env } from '@/config/env.js';
 
 const JOB_NAME = 'threads_insights_fetch';
 // 발행 후 5일간 매일 1회 수집 (D+1~D+5)
@@ -45,6 +48,7 @@ export async function fetchThreadsInsightsOnce(): Promise<{
   let totalNew = 0;
   let result: JobResult = '성공';
   let errorMsg = '';
+  const newSnapshots: { milestone: number; preview: string; views: number; likes: number; replies: number; reposts: number; permalink: string }[] = [];
 
   try {
     // 1. 내 최근 글 (최근 30일)
@@ -118,6 +122,15 @@ export async function fetchThreadsInsightsOnce(): Promise<{
         if (saved) {
           totalNew++;
           logger.debug('nami', `성과 저장: D+${milestone} (post=${post.id})`);
+          newSnapshots.push({
+            milestone,
+            preview: (post.text ?? '').replace(/\n/g, ' ').slice(0, 40),
+            views: insights.views,
+            likes: insights.likes,
+            replies: insights.replies,
+            reposts: insights.reposts + insights.quotes,
+            permalink: post.permalink ?? '',
+          });
         } else {
           result = '부분실패';
         }
@@ -125,6 +138,23 @@ export async function fetchThreadsInsightsOnce(): Promise<{
     }
 
     logger.info('nami', `성과 수집 완료 — 신규 스냅샷 ${totalNew}개`);
+
+    // Discord 보고 — 신규 성과가 있을 때만
+    if (newSnapshots.length > 0) {
+      try {
+        const channel = await discordClient.channels.fetch(env.DISCORD_CHANNEL_NAMI).catch(() => null);
+        const textChannel = channel?.isTextBased() ? (channel as TextChannel) : null;
+        const lines = newSnapshots.map((s) => {
+          const previewText = s.preview.length >= 40 ? `${s.preview}…` : s.preview;
+          return `📊 **[D+${s.milestone}]** "${previewText}"\n조회 ${s.views.toLocaleString()} · 좋아요 ${s.likes} · 댓글 ${s.replies} · 리포스트 ${s.reposts}${s.permalink ? `\n📎 ${s.permalink}` : ''}`;
+        });
+        await textChannel?.send(
+          `🍊 **성과 정보 받아왔어요!** (마일스톤 ${totalNew}건)\n\n${lines.join('\n\n')}`,
+        );
+      } catch (discordErr) {
+        logger.warn('nami', 'Discord 성과 보고 실패', discordErr);
+      }
+    }
   } catch (err) {
     result = '실패';
     errorMsg = err instanceof Error ? err.message : String(err);
