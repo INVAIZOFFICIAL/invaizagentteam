@@ -185,7 +185,7 @@ export async function openPersistentContext(): Promise<BrowserContext> {
     );
   }
   const context = await chromium.launchPersistentContext(PLAYWRIGHT_PROFILE_DIR, {
-    headless: false,
+    headless: true,
     userAgent: CHROME_UA,
     locale: 'ko-KR',
     viewport: { width: 1280, height: 900 },
