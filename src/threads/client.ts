@@ -158,6 +158,23 @@ function inferMediaType(url: string): 'IMAGE' | 'VIDEO' {
   return /\.(mp4|mov|avi|webm)(\?|$)/i.test(url) ? 'VIDEO' : 'IMAGE';
 }
 
+// 미디어 URL 접근 가능 여부 사전 확인 (HEAD가 막힌 S3 대비 GET Range 사용)
+async function validateMediaUrl(url: string): Promise<void> {
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (res.status !== 200 && res.status !== 206) {
+      throw new Error(`미디어 URL 접근 실패 (HTTP ${res.status}): ${url.slice(0, 120)}`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('미디어 URL')) throw err;
+    throw new Error(`미디어 URL에 연결할 수 없어요: ${url.slice(0, 120)}`);
+  }
+}
+
 async function waitForContainer(creationId: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   const timeoutLabel = `${Math.round(timeoutMs / 1000)}s`;
@@ -205,6 +222,11 @@ export async function createMediaContainer(text: string, mediaUrls: string[] = [
   const userId = env.THREADS_USER_ID;
   if (!userId) throw new Error('THREADS_USER_ID가 설정되지 않았습니다.');
 
+  // 이미지 URL 사전 검증 — Notion 내부 URL 또는 접근 불가 URL 조기 차단
+  for (const url of mediaUrls) {
+    await validateMediaUrl(url);
+  }
+
   if (mediaUrls.length === 0) {
     const res = await threadsPost<{ id: string }>(`/${userId}/threads`, {
       media_type: 'TEXT',
@@ -225,7 +247,22 @@ export async function createMediaContainer(text: string, mediaUrls: string[] = [
     return res.id;
   }
 
-  // 캐러셀: 이미지·동영상 혼합 가능, 최대 10개
+  // 동영상이 하나라도 포함되면 캐러셀 불가 — 첫 번째 미디어만 단일 발행
+  // (Threads API는 VIDEO 캐러셀 아이템을 지원하지 않음)
+  const hasVideo = mediaUrls.some((u) => inferMediaType(u) === 'VIDEO');
+  if (hasVideo) {
+    const url = mediaUrls[0];
+    const mediaType = inferMediaType(url);
+    const params: Record<string, string> = { media_type: mediaType, text };
+    if (mediaType === 'IMAGE') params['image_url'] = url;
+    else params['video_url'] = url;
+    logger.warn('threads', `동영상 포함 — 캐러셀 불가, 첫 번째 미디어만 발행 (전체 ${mediaUrls.length}개 중 1개)`);
+    const res = await threadsPost<{ id: string }>(`/${userId}/threads`, params);
+    await waitForContainer(res.id, 180_000);
+    return res.id;
+  }
+
+  // 이미지만 있을 때 캐러셀 (최대 10장)
   const capped = mediaUrls.slice(0, 10);
   const itemIds: string[] = [];
   for (const url of capped) {

@@ -158,8 +158,11 @@ async function _publishPendingThreads(): Promise<void> {
     } catch (err) {
       logger.error('nami', `발행 실패 (재시도 ${MAX_RETRIES}회 소진): ${item.title}`, err);
       const report = buildErrorReport(err);
+      const mediaNote = item.mediaUrls.length > 0
+        ? `\n**이미지 URL:**\n\`\`\`\n${item.mediaUrls.map((u) => u.slice(0, 120)).join('\n')}\n\`\`\``
+        : '';
       textChannel?.send(
-        `🍊 **발행 실패했어요.** (${MAX_RETRIES}회 재시도했는데 안 됐어요)\n**${item.title}**\n\n**실패 원인:**\n\`\`\`\n${report}\n\`\`\``,
+        `🍊 **발행 실패했어요.** (${MAX_RETRIES}회 재시도했는데 안 됐어요)\n**${item.title}**\n\n**실패 원인:**\n\`\`\`\n${report}\n\`\`\`${mediaNote}`,
       );
       // 중복 발행 방지를 위해 중단
       break;
