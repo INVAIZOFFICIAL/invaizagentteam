@@ -11,9 +11,11 @@ import { publishTextPost, publishReplies } from '@/threads/client.js';
 import {
   getPendingContents,
   updateContentPublishInfo,
-  updateContentStatusAndDate,
   getLastPublishedAt,
 } from '@/notion/databases/contentDb.js';
+
+// 이번 서버 세션에서 실패한 포스트 ID — 재시도 없이 스킵 (상태는 발행대기 유지)
+const failedPageIds = new Set<string>();
 
 const MIN_GAP_HOURS = 3;
 const MAX_RETRIES = 2;
@@ -110,6 +112,12 @@ async function _publishPendingThreads(): Promise<void> {
   const textChannel = channel?.isTextBased() ? (channel as TextChannel) : null;
 
   for (const item of pending) {
+    // 이전 시도에서 실패한 포스트 스킵
+    if (failedPageIds.has(item.pageId)) {
+      logger.info('nami', `이전 실패로 스킵: ${item.title}`);
+      continue;
+    }
+
     // 3시간 간격 체크
     if (lastPublishedAt) {
       const gapHours = (Date.now() - lastPublishedAt.getTime()) / 3_600_000;
@@ -158,14 +166,13 @@ async function _publishPendingThreads(): Promise<void> {
       );
     } catch (err) {
       logger.error('nami', `발행 실패 (재시도 ${MAX_RETRIES}회 소진): ${item.title}`, err);
-      // 상태를 보관으로 변경 — 다음 cron에서 재시도하지 않음
-      await updateContentStatusAndDate(item.pageId, '보관').catch(() => {});
+      failedPageIds.add(item.pageId);
       const report = buildErrorReport(err);
       const mediaNote = item.mediaUrls.length > 0
         ? `\n**이미지 URL:**\n\`\`\`\n${item.mediaUrls.map((u) => u.slice(0, 120)).join('\n')}\n\`\`\``
         : '';
       textChannel?.send(
-        `🍊 **발행 실패했어요.** 노션에서 수정 후 다시 발행대기로 바꿔주세요.\n**${item.title}**\n\n**실패 원인:**\n\`\`\`\n${report}\n\`\`\`${mediaNote}`,
+        `🍊 **발행 실패했어요.** 노션 상태는 발행대기로 유지해뒀어요. 수정 후 서버 재시작하면 다시 시도해요.\n**${item.title}**\n\n**실패 원인:**\n\`\`\`\n${report}\n\`\`\`${mediaNote}`,
       );
       break;
     }
