@@ -43,6 +43,7 @@ interface RawChat {
   name?: string;
   title?: string;
   chatName?: string;
+  display_name?: string; // kakaocli 실제 출력 필드
 }
 
 function runKakaoCli(args: string[]): string {
@@ -57,7 +58,7 @@ function listAllChats(): Array<{ chatId: string; name: string }> {
     return parsed
       .map((c) => {
         const id = c.id ?? c.chatId ?? c.chat_id;
-        const name = c.name ?? c.title ?? c.chatName ?? '';
+        const name = c.display_name ?? c.name ?? c.title ?? c.chatName ?? '';
         return { chatId: id != null ? String(id) : '', name: String(name) };
       })
       .filter((c) => c.chatId && c.name);
