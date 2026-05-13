@@ -88,6 +88,7 @@ function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string; chatType
 // chatId는 서버 할당 — 맥북/맥미니 동일
 const FIXED_GROUP_CHATS: Array<{ chatId: string; name: string; chatType: string }> = [
   { chatId: '468603915984425', name: '큐텐강사 임재형강사님', chatType: '단톡방' },
+  { chatId: '466739426073413', name: '온꿈사 x DayZero 피드백', chatType: '단톡방' },
 ];
 
 // 단톡방 3개: chatName 패턴으로 탐지 + 위 수동 등록 목록 병합
