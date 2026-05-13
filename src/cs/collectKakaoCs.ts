@@ -84,7 +84,13 @@ function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string; chatType
   }
 }
 
-// 단톡방 3개: chatName 패턴으로 탐지 (맥미니 전용 채팅방)
+// chatName이 비어있어 패턴 탐지가 안 되는 단톡방 수동 등록
+// chatId는 서버 할당 — 맥북/맥미니 동일
+const FIXED_GROUP_CHATS: Array<{ chatId: string; name: string; chatType: string }> = [
+  { chatId: '468603915984425', name: '큐텐강사 임재형강사님', chatType: '단톡방' },
+];
+
+// 단톡방 3개: chatName 패턴으로 탐지 + 위 수동 등록 목록 병합
 // [투트랙X데이제로] 큐텐jp 자동업로드 프로그램 / 온꿈사 x DayZero 피드백 / 큐텐강사 임재형강사님
 function getGroupChatsFromDb(): Array<{ chatId: string; name: string; chatType: string }> {
   try {
@@ -96,10 +102,15 @@ function getGroupChatsFromDb(): Array<{ chatId: string; name: string; chatType: 
       '--user-id', String(KAKAO_USER_ID),
     ]);
     const rows = JSON.parse(chatRaw) as [string, string][];
-    return rows.map(([chatId, name]) => ({ chatId, name: name || '(unknown)', chatType: '단톡방' }));
+    const fromDb = rows.map(([chatId, name]) => ({ chatId, name: name || '(unknown)', chatType: '단톡방' }));
+
+    // 수동 등록 채팅방 중 DB에서 이미 탐지된 것 제외하고 추가
+    const dbIds = new Set(fromDb.map((c) => c.chatId));
+    const fixed = FIXED_GROUP_CHATS.filter((c) => !dbIds.has(c.chatId));
+    return [...fromDb, ...fixed];
   } catch (err) {
     logger.error(AGENT, `단톡방 쿼리 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
-    return [];
+    return FIXED_GROUP_CHATS; // DB 실패 시 수동 등록 채팅방만이라도 반환
   }
 }
 
