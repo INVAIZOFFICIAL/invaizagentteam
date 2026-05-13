@@ -24,6 +24,11 @@ const SINCE_DAYS = 90;
 // 채팅방 이름에 이 단어가 포함되면 CS 채팅방으로 간주 (대소문자 무관)
 const NAME_PATTERNS = [/dayzero/i, /데이제로/i];
 
+// 이름이 (unknown)인 채팅방에서 메시지 내용으로 CS 여부 판단
+// 오픈프로필 1:1 채팅은 DB에 이름이 없어서 메시지 내용으로만 감지 가능
+const CONTENT_PATTERNS = [/dayzero/i, /데이제로/i, /역직구/i, /dzero/i, /사전 ?신청/i];
+const CONTENT_SAMPLE = 20; // unknown 채팅 판별용 샘플 메시지 수
+
 interface RawKakaoMessage {
   id: number;
   chat_id: number;
@@ -89,6 +94,23 @@ function isCsChat(name: string): boolean {
   return NAME_PATTERNS.some((re) => re.test(name));
 }
 
+// (unknown) 채팅방은 최근 메시지 샘플로 DayZero CS 여부 판단
+function isCsChatByContent(chatId: string): boolean {
+  try {
+    const raw = runKakaoCli([
+      'messages',
+      '--user-id', String(KAKAO_USER_ID),
+      '--chat-id', chatId,
+      '--limit', String(CONTENT_SAMPLE),
+      '--json',
+    ]);
+    const msgs = JSON.parse(raw) as RawKakaoMessage[];
+    return msgs.some((m) => m.text && CONTENT_PATTERNS.some((re) => re.test(m.text!)));
+  } catch {
+    return false;
+  }
+}
+
 export interface CollectSummary {
   detectedChats: number;
   upsertedRooms: number;
@@ -104,8 +126,16 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
     return { detectedChats: 0, upsertedRooms: 0, createdRooms: 0, totalMessages: 0, failedRooms: 0 };
   }
 
-  const csChats = allChats.filter((c) => isCsChat(c.name));
-  logger.info(AGENT, `전체 ${allChats.length}개 중 CS 채팅방 ${csChats.length}개 감지`);
+  // 1차: 이름 패턴 매칭
+  const namedCs = allChats.filter((c) => isCsChat(c.name));
+
+  // 2차: (unknown) 채팅방은 메시지 내용으로 판단 (오픈프로필 1:1 채팅 감지용)
+  const unknownChats = allChats.filter((c) => c.name === '(unknown)' || c.name === '');
+  logger.info(AGENT, `이름 매칭 ${namedCs.length}개, unknown ${unknownChats.length}개 내용 스캔 중...`);
+  const contentCs = unknownChats.filter((c) => isCsChatByContent(c.chatId));
+
+  const csChats = [...namedCs, ...contentCs];
+  logger.info(AGENT, `전체 ${allChats.length}개 중 CS 채팅방 ${csChats.length}개 감지 (이름 ${namedCs.length} + 내용 ${contentCs.length})`);
 
   let upserted = 0;
   let created = 0;
