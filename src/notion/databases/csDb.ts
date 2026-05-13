@@ -16,6 +16,7 @@ const MAX_MESSAGES_PER_PAGE = 1000;
 export interface CsChatRoom {
   chatId: string;
   chatName: string; // 사람 이름 또는 채팅방 이름
+  chatType?: string; // "CS" | "단톡방" | "온꿈사"
   messages: Array<{
     timestamp: string; // ISO datetime
     sender: string; // '나' 또는 상대방 이름
@@ -105,8 +106,8 @@ function messagesToBlocks(messages: CsChatRoom['messages']): Array<{
   type: 'paragraph';
   paragraph: { rich_text: Array<{ type: 'text'; text: { content: string } }> };
 }> {
-  // 최근 N개만 (오래된 메시지가 잘림)
-  const recent = messages.slice(-MAX_MESSAGES_PER_PAGE);
+  // kakaocli는 최신→오래된 순(내림차순)으로 반환 — 최근 N개를 역순해 오래된→최신(오름차순)으로 표시
+  const recent = messages.slice(0, MAX_MESSAGES_PER_PAGE).reverse();
   return recent.map((m) => {
     const time = m.timestamp ? m.timestamp.substring(11, 16) : '';
     const date = m.timestamp ? m.timestamp.substring(0, 10) : '';
@@ -159,26 +160,31 @@ export async function upsertCsChatRoom(room: CsChatRoom): Promise<UpsertResult |
     return null;
   }
 
-  const lastTs = room.messages[room.messages.length - 1]?.timestamp ?? new Date().toISOString();
-  // Notion date 는 ISO 또는 YYYY-MM-DD 모두 허용 — 시간까지 보존
+  // messages는 kakaocli 내림차순(최신→오래된) — [0]이 가장 최근 메시지
+  const lastTs = room.messages[0]?.timestamp ?? new Date().toISOString();
+  const now = new Date().toISOString();
   const blocks = messagesToBlocks(room.messages);
 
   const existing = await findPageByChatId(room.chatId);
 
-  const properties = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
     이름: { title: [{ text: { content: room.chatName } }] },
     채팅방ID: { rich_text: [{ text: { content: room.chatId } }] },
     최근업데이트: { date: { start: lastTs } },
+    수집일: { date: { start: now } },
     메시지수: { number: room.messages.length },
   };
+  if (room.chatType) {
+    properties['유형'] = { select: { name: room.chatType } };
+  }
 
   if (existing) {
     // 본문 갈아끼우기
     await clearPageChildren(existing.id);
     await notionClient.pages.update({
       page_id: existing.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      properties: properties as any,
+      properties,
     });
     await appendChildrenInChunks(existing.id, blocks);
     return { pageId: existing.id, created: false, messageCount: room.messages.length };
@@ -189,8 +195,7 @@ export async function upsertCsChatRoom(room: CsChatRoom): Promise<UpsertResult |
   const remaining = blocks.slice(APPEND_CHUNK);
   const page = await notionClient.pages.create({
     parent: { database_id: env.NOTION_CS_DB_ID },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    properties: properties as any,
+    properties,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     children: initialChildren as any,
   });
