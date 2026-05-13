@@ -12,7 +12,6 @@ async function main() {
           options: [
             { name: 'CS', color: 'blue' },
             { name: '단톡방', color: 'green' },
-            { name: '온꿈사', color: 'orange' },
           ],
         },
       },

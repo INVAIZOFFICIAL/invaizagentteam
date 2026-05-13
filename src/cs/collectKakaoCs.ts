@@ -42,10 +42,8 @@ function runKakaoCli(args: string[]): string {
   });
 }
 
-// DayZero 오픈프로필 1:1 채팅방 전체를 DB에서 조회, NTUser JOIN으로 실명 + linkId 반환
-// linkId=458487784 → "[DayZero] 손주완" → chatType "CS"
-// linkId=460388081 → "DayZero 사전 신청 Q&A" → chatType "단톡방"
-function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string; linkId: string }> {
+// DayZero 오픈프로필 type=3 1:1 채팅방 전체 → 모두 "CS"
+function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string }> {
   try {
     const linkRaw = runKakaoCli([
       'query',
@@ -59,47 +57,38 @@ function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string; linkId: 
     }
     const linkIds = linkRows.map((r) => r[0]).join(',');
 
-    // chatId가 Number.MAX_SAFE_INTEGER를 초과하므로 TEXT로 캐스팅
     const chatRaw = runKakaoCli([
       'query',
       `SELECT CAST(r.chatId AS TEXT),
-              COALESCE(NULLIF(r.chatName, ''), u.nickName, u.displayName, '(unknown)') AS resolvedName,
-              CAST(r.linkId AS TEXT)
+              COALESCE(NULLIF(r.chatName, ''), u.nickName, u.displayName, '(unknown)') AS resolvedName
        FROM NTChatRoom r
        LEFT JOIN NTUser u ON u.directChatId = r.chatId
        WHERE r.type = 3 AND r.linkId IN (${linkIds})`,
       '--user-id', String(KAKAO_USER_ID),
     ]);
-    const chatRows = JSON.parse(chatRaw) as [string, string, string][];
-    return chatRows.map(([chatId, name, linkId]) => ({
-      chatId,
-      name: name || '(unknown)',
-      linkId,
-    }));
+    const chatRows = JSON.parse(chatRaw) as [string, string][];
+    return chatRows.map(([chatId, name]) => ({ chatId, name: name || '(unknown)' }));
   } catch (err) {
     logger.error(AGENT, `DB 직접 쿼리 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
     return [];
   }
 }
 
-// chatName 패턴으로 추가 채팅방 탐색 (온꿈사 등 DayZero 오픈프로필 밖의 채팅방)
-function getExtraChatsFromDb(
-  namePatterns: string[],
-  chatType: string,
-): Array<{ chatId: string; name: string; chatType: string }> {
+// 단톡방 3개: chatName 패턴으로 탐지 (맥미니 전용 채팅방)
+// [투트랙X데이제로] 큐텐jp 자동업로드 프로그램 / 온꿈사 x DayZero 피드백 / 큐텐강사 임재형강사님
+function getGroupChatsFromDb(): Array<{ chatId: string; name: string; chatType: string }> {
   try {
-    const likeConditions = namePatterns
-      .map((p) => `r.chatName LIKE '${p.replace(/'/g, "''")}'`)
-      .join(' OR ');
     const chatRaw = runKakaoCli([
       'query',
-      `SELECT CAST(r.chatId AS TEXT), r.chatName FROM NTChatRoom r WHERE (${likeConditions}) AND r.chatId > 0`,
+      `SELECT CAST(r.chatId AS TEXT), r.chatName FROM NTChatRoom r
+       WHERE (r.chatName LIKE '%투트랙%' OR r.chatName LIKE '%온꿈사%' OR r.chatName LIKE '%임재형%' OR r.chatName LIKE '%큐텐강사%')
+       AND r.chatId > 0`,
       '--user-id', String(KAKAO_USER_ID),
     ]);
     const rows = JSON.parse(chatRaw) as [string, string][];
-    return rows.map(([chatId, name]) => ({ chatId, name: name || '(unknown)', chatType }));
+    return rows.map(([chatId, name]) => ({ chatId, name: name || '(unknown)', chatType: '단톡방' }));
   } catch (err) {
-    logger.error(AGENT, `추가 채팅방 쿼리 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
+    logger.error(AGENT, `단톡방 쿼리 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
     return [];
   }
 }
@@ -129,36 +118,16 @@ export interface CollectSummary {
   failedRooms: number;
 }
 
-// DayZero 오픈링크 ID → 유형 매핑 (NTOpenLink에서 동적으로 조회된 linkId 사용)
-// "[DayZero] 손주완" 오픈프로필 1:1 → CS, "DayZero 사전 신청 Q&A" → 단톡방
-function resolveChatType(linkId: string, linkNameMap: Map<string, string>): string {
-  const linkName = linkNameMap.get(linkId) ?? '';
-  if (linkName.includes('Q&A') || linkName.includes('단톡') || linkName.includes('사전 신청')) return '단톡방';
-  return 'CS';
-}
-
 export async function collectKakaoCsConversations(): Promise<CollectSummary> {
-  // DayZero 오픈링크 이름 맵 (linkId → linkName) 로드
-  let linkNameMap = new Map<string, string>();
-  try {
-    const linkRaw = runKakaoCli([
-      'query',
-      `SELECT CAST(linkId AS TEXT), linkName FROM NTOpenLink WHERE (linkName LIKE '%DayZero%' OR linkName LIKE '%데이제로%') AND linkId > 0`,
-      '--user-id', String(KAKAO_USER_ID),
-    ]);
-    const linkRows = JSON.parse(linkRaw) as [string, string][];
-    linkNameMap = new Map(linkRows);
-  } catch {
-    // 조회 실패해도 진행 — chatType이 기본 'CS'로 설정됨
-  }
-
   const dayzeroChats = getDayzeroChatsFromDb();
-  // 온꿈사: 임재형 강사님 채팅방 (맥미니에만 존재하는 chatName 기반 탐지)
-  const onkkumsaChats = getExtraChatsFromDb(['%임재형%', '%큐텐강사%'], '온꿈사');
+  const groupChats = getGroupChatsFromDb();
 
+  const groupChatIds = new Set(groupChats.map((c) => c.chatId));
   const allDetectedChats: Array<{ chatId: string; name: string; chatType: string }> = [
-    ...dayzeroChats.map((c) => ({ ...c, chatType: resolveChatType(c.linkId, linkNameMap) })),
-    ...onkkumsaChats,
+    ...dayzeroChats
+      .filter((c) => !groupChatIds.has(c.chatId)) // 단톡방과 중복 제거
+      .map((c) => ({ ...c, chatType: 'CS' })),
+    ...groupChats,
   ];
 
   if (allDetectedChats.length === 0) {
