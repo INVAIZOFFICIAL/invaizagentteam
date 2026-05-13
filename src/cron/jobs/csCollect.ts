@@ -1,4 +1,5 @@
-// CS 카카오톡 수집 cron — 매 6시간마다 DayZero 관련 오픈채팅을 Notion CS DB에 동기화
+// CS 카카오톡 수집 cron — 매일 05:00 DayZero 관련 오픈채팅을 Notion CS DB에 동기화
+// 수동 수집은 Claude에게 요청.
 //
 // 신규 문의자가 [DayZero] 손주완 오픈프로필로 톡을 보내면
 // 새 채팅방이 자동 감지되어 Notion 에 새 행으로 등록된다.
@@ -19,24 +20,29 @@ async function getChannel(): Promise<TextChannel | null> {
 export function registerCsCollectJob(): void {
   registerJob({
     name: 'CS:카카오-수집',
-    schedule: CRON.EVERY_6H,
+    schedule: CRON.DAILY_05,
     fn: async () => {
       const s = await collectKakaoCsConversations();
       logger.info('cron', `CS 카카오 — 감지 ${s.detectedChats}, upsert ${s.upsertedRooms}(신규 ${s.createdRooms}), 메시지 ${s.totalMessages}, 실패 ${s.failedRooms}`);
 
       const ch = await getChannel();
       if (s.detectedChats === 0) {
-        ch?.send('📬 **CS 카카오 수집** — 카카오톡 DB 접근 실패 (잠김 또는 채팅방 없음)');
+        ch?.send('📬 **[초파] CS 카카오 수집 실패** — 카카오톡 DB 접근 불가 (로그인 확인 필요)');
         return;
       }
 
       const updated = s.upsertedRooms - s.createdRooms;
-      const parts: string[] = [];
-      if (s.createdRooms > 0) parts.push(`신규 문의자 ${s.createdRooms}명`);
-      if (updated > 0) parts.push(`기존 ${updated}명 갱신`);
-      if (parts.length === 0) parts.push('변경 없음');
+      const newCount = s.createdRooms;
+      const lines = [
+        `📬 **[초파] 새벽 CS 수집 완료** (05:00 자동)`,
+        `> 총 채팅방 ${s.detectedChats}개 수집`,
+        newCount > 0 ? `> 🆕 신규 문의자 ${newCount}명` : '',
+        updated > 0 ? `> 🔄 기존 ${updated}명 갱신` : '',
+        `> 💬 총 메시지 ${s.totalMessages}건`,
+        s.failedRooms > 0 ? `> ⚠️ 실패 ${s.failedRooms}건` : '',
+      ].filter(Boolean).join('\n');
 
-      ch?.send(`📬 **CS 카카오 수집 완료** — ${parts.join(', ')} (총 메시지 ${s.totalMessages}건)`);
+      ch?.send(lines);
     },
   });
 }
