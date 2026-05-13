@@ -94,10 +94,12 @@ function fetchMessages(chatId: string): RawKakaoMessage[] {
 
 // 오픈프로필 1:1 CS 채팅 판별:
 // - 이름에 DayZero 패턴이 있거나
-// - type=unknown AND member_count=2 (오픈프로필 1:1 채팅 — DB에 이름이 없는 형태)
+// - type=unknown AND member_count=2 AND 이름 없음 → 오픈프로필 1:1 (DB에 이름 미저장)
+//   (토스뱅크·스타벅스 등 비즈니스 채팅은 이름이 DB에 있으므로 자동 제외)
 function isCsChat(name: string, type: string, memberCount: number): boolean {
   if (NAME_PATTERNS.some((re) => re.test(name))) return true;
-  return type === 'unknown' && memberCount === 2;
+  const hasNoName = name === '' || name === '(unknown)';
+  return type === 'unknown' && memberCount === 2 && hasNoName;
 }
 
 export interface CollectSummary {
