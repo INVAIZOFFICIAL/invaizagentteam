@@ -29,6 +29,27 @@ interface ExistingPage {
   lastUpdated?: string;
 }
 
+export async function getAllCsChatIds(): Promise<string[]> {
+  if (!env.NOTION_CS_DB_ID) return [];
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const res = await notionClient.databases.query({
+      database_id: env.NOTION_CS_DB_ID,
+      start_cursor: cursor,
+      page_size: 100,
+    });
+    for (const page of res.results) {
+      if (!('properties' in page)) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chatId = (page as any).properties['채팅방ID']?.rich_text?.[0]?.plain_text;
+      if (chatId) ids.push(chatId);
+    }
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+  return ids;
+}
+
 async function findPageByChatId(chatId: string): Promise<ExistingPage | null> {
   if (!env.NOTION_CS_DB_ID) return null;
   try {

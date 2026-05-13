@@ -10,7 +10,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { logger } from '@/utils/logger.js';
-import { upsertCsChatRoom, type CsChatRoom } from '@/notion/databases/csDb.js';
+import { upsertCsChatRoom, getAllCsChatIds, type CsChatRoom } from '@/notion/databases/csDb.js';
 
 const AGENT = 'cs:kakao';
 const KAKAOCLI = `${process.env.HOME}/.local/bin/kakaocli`;
@@ -117,10 +117,19 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
     return { detectedChats: 0, upsertedRooms: 0, createdRooms: 0, totalMessages: 0, failedRooms: 0 };
   }
 
-  // type=unknown AND member_count=2 → 오픈프로필 1:1 채팅 (DayZero CS)
-  // 이름 패턴 매칭도 병행 (harvest 후 이름이 채워질 경우 대비)
-  const csChats = allChats.filter((c) => isCsChat(c.name, c.type, c.memberCount));
-  logger.info(AGENT, `전체 ${allChats.length}개 중 CS 채팅방 ${csChats.length}개 감지`);
+  // 신규 CS 채팅: type=unknown AND member_count=2 AND 이름 없음 (오픈프로필 1:1)
+  const newCsChats = allChats.filter((c) => isCsChat(c.name, c.type, c.memberCount));
+  const newChatIds = new Set(newCsChats.map((c) => c.chatId));
+
+  // 기존 Notion에 저장된 chatId도 re-collect (kakaocli chats 목록 밖의 오래된 채팅 포함)
+  const knownChatIds = await getAllCsChatIds();
+  const knownOnly = knownChatIds.filter((id) => !newChatIds.has(id));
+
+  const csChats: Array<{ chatId: string; name: string }> = [
+    ...newCsChats,
+    ...knownOnly.map((id) => ({ chatId: id, name: '(unknown)' })),
+  ];
+  logger.info(AGENT, `CS 채팅방 ${csChats.length}개 (신규감지 ${newCsChats.length} + 기존재수집 ${knownOnly.length})`);
 
   let upserted = 0;
   let created = 0;
