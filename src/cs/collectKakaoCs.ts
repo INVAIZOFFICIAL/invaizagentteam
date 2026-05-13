@@ -24,11 +24,6 @@ const SINCE_DAYS = 90;
 // 채팅방 이름에 이 단어가 포함되면 CS 채팅방으로 간주 (대소문자 무관)
 const NAME_PATTERNS = [/dayzero/i, /데이제로/i];
 
-// 이름이 (unknown)인 채팅방에서 메시지 내용으로 CS 여부 판단
-// 오픈프로필 1:1 채팅은 DB에 이름이 없어서 메시지 내용으로만 감지 가능
-const CONTENT_PATTERNS = [/dayzero/i, /데이제로/i, /역직구/i, /dzero/i, /사전 ?신청/i];
-const CONTENT_SAMPLE = 20; // unknown 채팅 판별용 샘플 메시지 수
-
 interface RawKakaoMessage {
   id: number;
   chat_id: number;
@@ -49,13 +44,15 @@ interface RawChat {
   title?: string;
   chatName?: string;
   display_name?: string; // kakaocli 실제 출력 필드
+  type?: string;         // "direct" | "group" | "unknown"
+  member_count?: number;
 }
 
 function runKakaoCli(args: string[]): string {
   return execFileSync(KAKAOCLI, args, { timeout: 60_000, encoding: 'utf8' });
 }
 
-function listAllChats(): Array<{ chatId: string; name: string }> {
+function listAllChats(): Array<{ chatId: string; name: string; type: string; memberCount: number }> {
   try {
     const raw = runKakaoCli(['chats', '--user-id', String(KAKAO_USER_ID), '--json']);
     const parsed = JSON.parse(raw) as RawChat[];
@@ -64,9 +61,14 @@ function listAllChats(): Array<{ chatId: string; name: string }> {
       .map((c) => {
         const id = c.id ?? c.chatId ?? c.chat_id;
         const name = c.display_name ?? c.name ?? c.title ?? c.chatName ?? '';
-        return { chatId: id != null ? String(id) : '', name: String(name) };
+        return {
+          chatId: id != null ? String(id) : '',
+          name: String(name),
+          type: c.type ?? '',
+          memberCount: c.member_count ?? 0,
+        };
       })
-      .filter((c) => c.chatId && c.name);
+      .filter((c) => c.chatId);
   } catch (err) {
     logger.error(AGENT, `chats 조회 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
     return [];
@@ -90,25 +92,12 @@ function fetchMessages(chatId: string): RawKakaoMessage[] {
   }
 }
 
-function isCsChat(name: string): boolean {
-  return NAME_PATTERNS.some((re) => re.test(name));
-}
-
-// (unknown) 채팅방은 최근 메시지 샘플로 DayZero CS 여부 판단
-function isCsChatByContent(chatId: string): boolean {
-  try {
-    const raw = runKakaoCli([
-      'messages',
-      '--user-id', String(KAKAO_USER_ID),
-      '--chat-id', chatId,
-      '--limit', String(CONTENT_SAMPLE),
-      '--json',
-    ]);
-    const msgs = JSON.parse(raw) as RawKakaoMessage[];
-    return msgs.some((m) => m.text && CONTENT_PATTERNS.some((re) => re.test(m.text!)));
-  } catch {
-    return false;
-  }
+// 오픈프로필 1:1 CS 채팅 판별:
+// - 이름에 DayZero 패턴이 있거나
+// - type=unknown AND member_count=2 (오픈프로필 1:1 채팅 — DB에 이름이 없는 형태)
+function isCsChat(name: string, type: string, memberCount: number): boolean {
+  if (NAME_PATTERNS.some((re) => re.test(name))) return true;
+  return type === 'unknown' && memberCount === 2;
 }
 
 export interface CollectSummary {
@@ -126,16 +115,10 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
     return { detectedChats: 0, upsertedRooms: 0, createdRooms: 0, totalMessages: 0, failedRooms: 0 };
   }
 
-  // 1차: 이름 패턴 매칭
-  const namedCs = allChats.filter((c) => isCsChat(c.name));
-
-  // 2차: (unknown) 채팅방은 메시지 내용으로 판단 (오픈프로필 1:1 채팅 감지용)
-  const unknownChats = allChats.filter((c) => c.name === '(unknown)' || c.name === '');
-  logger.info(AGENT, `이름 매칭 ${namedCs.length}개, unknown ${unknownChats.length}개 내용 스캔 중...`);
-  const contentCs = unknownChats.filter((c) => isCsChatByContent(c.chatId));
-
-  const csChats = [...namedCs, ...contentCs];
-  logger.info(AGENT, `전체 ${allChats.length}개 중 CS 채팅방 ${csChats.length}개 감지 (이름 ${namedCs.length} + 내용 ${contentCs.length})`);
+  // type=unknown AND member_count=2 → 오픈프로필 1:1 채팅 (DayZero CS)
+  // 이름 패턴 매칭도 병행 (harvest 후 이름이 채워질 경우 대비)
+  const csChats = allChats.filter((c) => isCsChat(c.name, c.type, c.memberCount));
+  logger.info(AGENT, `전체 ${allChats.length}개 중 CS 채팅방 ${csChats.length}개 감지`);
 
   let upserted = 0;
   let created = 0;
