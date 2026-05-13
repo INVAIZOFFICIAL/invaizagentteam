@@ -42,8 +42,10 @@ function runKakaoCli(args: string[]): string {
   });
 }
 
-// DayZero 오픈프로필 type=3 1:1 채팅방 전체 → 모두 "CS"
-function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string }> {
+// DayZero 관련 모든 채팅방 조회:
+// - type=3 (오픈프로필 1:1) → chatType "CS", NTUser.nickName으로 실명 취득
+// - type=4/1 (그룹/단체) → chatType "단톡방", NTOpenLink.linkName으로 채팅방명 취득
+function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string; chatType: string }> {
   try {
     const linkRaw = runKakaoCli([
       'query',
@@ -57,17 +59,25 @@ function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string }> {
     }
     const linkIds = linkRows.map((r) => r[0]).join(',');
 
+    // chatId가 Number.MAX_SAFE_INTEGER 초과 → TEXT 캐스팅 필수
+    // 1:1(type=3): NTUser.nickName, 그룹(type!=3): NTOpenLink.linkName 우선
     const chatRaw = runKakaoCli([
       'query',
       `SELECT CAST(r.chatId AS TEXT),
-              COALESCE(NULLIF(r.chatName, ''), u.nickName, u.displayName, '(unknown)') AS resolvedName
+              COALESCE(NULLIF(r.chatName, ''), u.nickName, u.displayName, ol.linkName, '(unknown)') AS resolvedName,
+              r.type
        FROM NTChatRoom r
        LEFT JOIN NTUser u ON u.directChatId = r.chatId
-       WHERE r.type = 3 AND r.linkId IN (${linkIds})`,
+       LEFT JOIN NTOpenLink ol ON ol.linkId = r.linkId
+       WHERE r.linkId IN (${linkIds}) AND r.chatId > 0 AND r.type != 9999`,
       '--user-id', String(KAKAO_USER_ID),
     ]);
-    const chatRows = JSON.parse(chatRaw) as [string, string][];
-    return chatRows.map(([chatId, name]) => ({ chatId, name: name || '(unknown)' }));
+    const chatRows = JSON.parse(chatRaw) as [string, string, number][];
+    return chatRows.map(([chatId, name, type]) => ({
+      chatId,
+      name: name || '(unknown)',
+      chatType: type === 3 ? 'CS' : '단톡방',
+    }));
   } catch (err) {
     logger.error(AGENT, `DB 직접 쿼리 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
     return [];
@@ -123,10 +133,9 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
   const groupChats = getGroupChatsFromDb();
 
   const groupChatIds = new Set(groupChats.map((c) => c.chatId));
+  // getDayzeroChatsFromDb()가 type 기반으로 chatType을 이미 설정 — 덮어쓰지 않음
   const allDetectedChats: Array<{ chatId: string; name: string; chatType: string }> = [
-    ...dayzeroChats
-      .filter((c) => !groupChatIds.has(c.chatId)) // 단톡방과 중복 제거
-      .map((c) => ({ ...c, chatType: 'CS' })),
+    ...dayzeroChats.filter((c) => !groupChatIds.has(c.chatId)), // 단톡방과 중복 제거
     ...groupChats,
   ];
 
@@ -160,9 +169,16 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
       continue;
     }
 
+    // "(unknown)" 채팅방: 상대방 발신자 이름으로 추론
+    let resolvedName = chat.name;
+    if (resolvedName === '(unknown)') {
+      const otherSender = textMessages.find((m) => !m.is_from_me && m.sender);
+      if (otherSender?.sender) resolvedName = otherSender.sender;
+    }
+
     const room: CsChatRoom = {
       chatId: chat.chatId,
-      chatName: chat.name,
+      chatName: resolvedName,
       chatType: chat.chatType,
       messages: textMessages.map((m) => ({
         timestamp: m.timestamp,
