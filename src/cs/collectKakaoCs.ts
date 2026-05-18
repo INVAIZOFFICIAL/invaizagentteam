@@ -10,7 +10,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { logger } from '@/utils/logger.js';
-import { upsertCsChatRoom, getAllCsChatIds, type CsChatRoom } from '@/notion/databases/csDb.js';
+import { upsertCsChatRoom, getAllCsLastUpdated, type CsChatRoom } from '@/notion/databases/csDb.js';
 
 const AGENT = 'cs:kakao';
 const KAKAOCLI = `${process.env.HOME}/.local/bin/kakaocli`;
@@ -60,15 +60,29 @@ function getDayzeroChatsFromDb(): Array<{ chatId: string; name: string; chatType
     const linkIds = linkRows.map((r) => r[0]).join(',');
 
     // chatId가 Number.MAX_SAFE_INTEGER 초과 → TEXT 캐스팅 필수
-    // 1:1(type=3): NTUser.nickName, 그룹(type!=3): NTOpenLink.linkName 우선
+    // 1:1(type=3): directChatId JOIN 우선, 없으면 NTChatMessage.authorId → NTUser로 실명 취득
+    // 그룹(type!=3): NTOpenLink.linkName 우선
     const chatRaw = runKakaoCli([
       'query',
       `SELECT CAST(r.chatId AS TEXT),
-              COALESCE(NULLIF(r.chatName, ''), u.nickName, u.displayName, ol.linkName, '(unknown)') AS resolvedName,
+              COALESCE(
+                NULLIF(r.chatName, ''),
+                u.nickName, u.displayName,
+                u2.nickName, u2.displayName,
+                CASE WHEN r.type != 3 THEN ol.linkName END,
+                '(unknown)'
+              ) AS resolvedName,
               r.type
        FROM NTChatRoom r
        LEFT JOIN NTUser u ON u.directChatId = r.chatId
        LEFT JOIN NTOpenLink ol ON ol.linkId = r.linkId
+       LEFT JOIN (
+         SELECT chatId, MIN(authorId) AS otherAuthorId
+         FROM NTChatMessage
+         WHERE authorId != ${KAKAO_USER_ID} AND authorId > 0
+         GROUP BY chatId
+       ) msg ON msg.chatId = r.chatId
+       LEFT JOIN NTUser u2 ON u2.userId = msg.otherAuthorId
        WHERE r.linkId IN (${linkIds}) AND r.chatId > 0 AND r.type != 9999`,
       '--user-id', String(KAKAO_USER_ID),
     ]);
@@ -115,16 +129,18 @@ function getGroupChatsFromDb(): Array<{ chatId: string; name: string; chatType: 
   }
 }
 
-function fetchMessages(chatId: string): RawKakaoMessage[] {
+function fetchMessages(chatId: string, since?: string): RawKakaoMessage[] {
   try {
-    // --since 없이 전체 기간 조회, --limit으로 최근 N건만 수집 (kakaocli는 최신→오래된 순 반환)
-    const raw = runKakaoCli([
+    const args = [
       'messages',
       '--user-id', String(KAKAO_USER_ID),
       '--chat-id', chatId,
       '--limit', String(MESSAGE_LIMIT),
       '--json',
-    ]);
+    ];
+    // since가 있으면 해당 시각 이후 신규 메시지만 조회 (증분 수집)
+    if (since) args.push('--since', since);
+    const raw = runKakaoCli(args);
     return JSON.parse(raw) as RawKakaoMessage[];
   } catch (err) {
     logger.warn(AGENT, `메시지 조회 실패 chatId=${chatId}: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`);
@@ -158,9 +174,9 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
 
   const dbChatIds = new Set(allDetectedChats.map((c) => c.chatId));
 
-  // Notion에 저장된 chatId 중 DB 쿼리에서 누락된 것도 재수집 (엣지케이스: DB 정리 후에도 기록 유지)
-  const knownChatIds = await getAllCsChatIds();
-  const notionOnly = knownChatIds
+  // Notion에 저장된 chatId + 최근업데이트 맵 — 증분 수집 기준 및 Notion전용 방 보충
+  const lastUpdatedMap = await getAllCsLastUpdated();
+  const notionOnly = [...lastUpdatedMap.keys()]
     .filter((id) => !dbChatIds.has(id))
     .map((id) => ({ chatId: id, name: '(unknown)', chatType: undefined as string | undefined }));
 
@@ -173,19 +189,32 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
   let failed = 0;
 
   for (const chat of csChats) {
-    const rawMessages = fetchMessages(chat.chatId);
+    // 기존 방은 마지막 수집 이후 신규 메시지만 조회 (증분), 신규 방은 전체 조회
+    const lastUpdated = lastUpdatedMap.get(chat.chatId);
+    const isIncremental = !!lastUpdated;
+    const rawMessages = fetchMessages(chat.chatId, lastUpdated || undefined);
     const textMessages = rawMessages.filter((m) => m.text && m.text.trim().length > 0);
 
     if (textMessages.length === 0) {
-      logger.debug(AGENT, `메시지 없음 — 스킵: ${chat.name}`);
+      logger.debug(AGENT, `신규 메시지 없음 — 스킵: ${chat.name}`);
       continue;
     }
 
-    // "(unknown)" 채팅방: 상대방 발신자 이름으로 추론
+    // 이름 미해결 방: sender_id → NTUser 추가 조회
     let resolvedName = chat.name;
     if (resolvedName === '(unknown)') {
-      const otherSender = textMessages.find((m) => !m.is_from_me && m.sender);
-      if (otherSender?.sender) resolvedName = otherSender.sender;
+      const otherMsg = rawMessages.find((m) => !m.is_from_me && m.sender_id && m.sender_id > 0);
+      if (otherMsg?.sender_id) {
+        try {
+          const userRaw = runKakaoCli([
+            'query',
+            `SELECT COALESCE(nickName, displayName, '') FROM NTUser WHERE userId = ${otherMsg.sender_id}`,
+            '--user-id', String(KAKAO_USER_ID),
+          ]);
+          const rows = JSON.parse(userRaw) as [string][];
+          if (rows[0]?.[0]) resolvedName = rows[0][0];
+        } catch { /* 조회 실패 시 (unknown) 유지 */ }
+      }
     }
 
     const room: CsChatRoom = {
@@ -201,12 +230,13 @@ export async function collectKakaoCsConversations(): Promise<CollectSummary> {
     };
 
     try {
-      const result = await upsertCsChatRoom(room);
+      const result = await upsertCsChatRoom(room, isIncremental);
       if (result) {
         upserted++;
         if (result.created) created++;
         totalMessages += result.messageCount;
-        logger.info(AGENT, `${result.created ? '신규' : '갱신'}: ${chat.name} (메시지 ${result.messageCount}건)`);
+        const mode = result.created ? '신규' : (isIncremental ? '증분' : '갱신');
+        logger.info(AGENT, `${mode}: ${chat.name} (신규메시지 ${result.messageCount}건)`);
       }
     } catch (err) {
       failed++;

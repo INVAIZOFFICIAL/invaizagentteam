@@ -21,6 +21,7 @@ export function registerCsCollectJob(): void {
   registerJob({
     name: 'CS:카카오-수집',
     schedule: CRON.DAILY_05,
+    timeoutMs: 60 * 60 * 1000, // 60분
     fn: async () => {
       const s = await collectKakaoCsConversations();
       logger.info('cron', `CS 카카오 — 감지 ${s.detectedChats}, upsert ${s.upsertedRooms}(신규 ${s.createdRooms}), 메시지 ${s.totalMessages}, 실패 ${s.failedRooms}`);

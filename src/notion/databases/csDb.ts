@@ -31,8 +31,14 @@ interface ExistingPage {
 }
 
 export async function getAllCsChatIds(): Promise<string[]> {
-  if (!env.NOTION_CS_DB_ID) return [];
-  const ids: string[] = [];
+  const map = await getAllCsLastUpdated();
+  return [...map.keys()];
+}
+
+// chatId → 최근업데이트(ISO) 맵 반환 — 증분 수집에서 since 기준으로 사용
+export async function getAllCsLastUpdated(): Promise<Map<string, string>> {
+  if (!env.NOTION_CS_DB_ID) return new Map();
+  const result = new Map<string, string>();
   let cursor: string | undefined;
   do {
     const res = await notionClient.databases.query({
@@ -43,12 +49,14 @@ export async function getAllCsChatIds(): Promise<string[]> {
     for (const page of res.results) {
       if (!('properties' in page)) continue;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const chatId = (page as any).properties['채팅방ID']?.rich_text?.[0]?.plain_text;
-      if (chatId) ids.push(chatId);
+      const props = (page as any).properties;
+      const chatId = props['채팅방ID']?.rich_text?.[0]?.plain_text;
+      const lastUpdated = props['최근업데이트']?.date?.start;
+      if (chatId) result.set(chatId, lastUpdated ?? '');
     }
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
   } while (cursor);
-  return ids;
+  return result;
 }
 
 async function findPageByChatId(chatId: string): Promise<ExistingPage | null> {
@@ -87,17 +95,26 @@ async function clearPageChildren(pageId: string): Promise<void> {
       page_size: 100,
     });
     for (const b of res.results) {
-      allBlockIds.push(b.id);
+      // 이미 아카이브된 블록은 delete 호출 시 validation_error → 스킵
+      if (!('archived' in b) || !(b as { archived?: boolean }).archived) {
+        allBlockIds.push(b.id);
+      }
     }
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
   } while (cursor);
 
-  for (const id of allBlockIds) {
-    try {
-      await notionClient.blocks.delete({ block_id: id });
-    } catch (err) {
-      logger.warn('csDb', `블록 삭제 실패 (계속 진행) ${id}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  // 병렬 삭제 (5개씩 묶어 Notion rate limit 여유 확보)
+  for (let i = 0; i < allBlockIds.length; i += 5) {
+    const chunk = allBlockIds.slice(i, i + 5);
+    await Promise.all(
+      chunk.map(async (id) => {
+        try {
+          await notionClient.blocks.delete({ block_id: id });
+        } catch (err) {
+          logger.warn('csDb', `블록 삭제 실패 (계속 진행) ${id}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }),
+    );
   }
 }
 
@@ -146,11 +163,10 @@ export interface UpsertResult {
 
 /**
  * 한 채팅방(=사람) 단위로 페이지를 upsert.
- * - 채팅방ID 로 기존 페이지 검색
- * - 있으면: 본문 비우고 새로 채움 + 속성 update
- * - 없으면: create + children append
+ * - appendOnly=true : 기존 본문 유지, 신규 메시지만 추가 (증분 수집)
+ * - appendOnly=false: 본문 전체 교체 (첫 수집 또는 강제 전체 재수집)
  */
-export async function upsertCsChatRoom(room: CsChatRoom): Promise<UpsertResult | null> {
+export async function upsertCsChatRoom(room: CsChatRoom, appendOnly = false): Promise<UpsertResult | null> {
   if (!env.NOTION_CS_DB_ID) {
     logger.warn('csDb', 'NOTION_CS_DB_ID 미설정 — 스킵');
     return null;
@@ -180,13 +196,16 @@ export async function upsertCsChatRoom(room: CsChatRoom): Promise<UpsertResult |
   }
 
   if (existing) {
-    // 본문 갈아끼우기
-    await clearPageChildren(existing.id);
-    await notionClient.pages.update({
-      page_id: existing.id,
-      properties,
-    });
-    await appendChildrenInChunks(existing.id, blocks);
+    if (appendOnly) {
+      // 증분 모드 — 기존 본문 유지, 신규 메시지만 뒤에 추가
+      await notionClient.pages.update({ page_id: existing.id, properties });
+      await appendChildrenInChunks(existing.id, blocks);
+    } else {
+      // 전체 재수집 모드 — 본문 갈아끼우기
+      await clearPageChildren(existing.id);
+      await notionClient.pages.update({ page_id: existing.id, properties });
+      await appendChildrenInChunks(existing.id, blocks);
+    }
     return { pageId: existing.id, created: false, messageCount: room.messages.length };
   }
 
